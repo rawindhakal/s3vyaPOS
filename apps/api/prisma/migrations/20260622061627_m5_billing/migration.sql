@@ -1,0 +1,16 @@
+-- AlterTable
+ALTER TABLE "Customer" ADD COLUMN     "loyaltyPoints" DECIMAL(18,2) NOT NULL DEFAULT 0;
+
+-- AlterTable
+ALTER TABLE "Sale" ADD COLUMN     "loyaltyEarned" DECIMAL(18,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "loyaltyRedeemed" DECIMAL(18,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "roundOff" DECIMAL(18,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "serviceCharge" DECIMAL(18,2) NOT NULL DEFAULT 0;
+
+-- AlterTable
+ALTER TABLE "SaleItem" ADD COLUMN     "discount" DECIMAL(18,2) NOT NULL DEFAULT 0;
+
+-- AlterTable
+ALTER TABLE "Shop" ADD COLUMN     "loyaltyEarnRate" DECIMAL(5,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "roundOff" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "serviceChargeRate" DECIMAL(5,2) NOT NULL DEFAULT 0;

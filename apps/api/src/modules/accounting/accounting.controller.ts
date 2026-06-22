@@ -78,6 +78,24 @@ export class AccountingController {
     return this.reports.getBankBook(shopId);
   }
 
+  @Get('reports/day-end')
+  dayEnd(
+    @CurrentUser('shopId') shopId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.getDayEnd(shopId, from, to);
+  }
+
+  @Get('reports/tax-summary')
+  taxSummary(
+    @CurrentUser('shopId') shopId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.getTaxSummary(shopId, from, to);
+  }
+
   @Get('ledger/:accountId')
   ledger(
     @CurrentUser('shopId') shopId: string,

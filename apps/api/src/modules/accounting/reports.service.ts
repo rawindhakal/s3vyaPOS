@@ -73,6 +73,55 @@ export class ReportsService {
     };
   }
 
+  /** Day-end (Z) report — sales summary + payment-mode breakdown for a date range. */
+  async getDayEnd(shopId: string, fromISO?: string, toISO?: string) {
+    const now = new Date();
+    const from = fromISO ? new Date(fromISO) : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const to = toISO ? new Date(toISO) : new Date(from.getFullYear(), from.getMonth(), from.getDate(), 23, 59, 59, 999);
+
+    const sales = await this.prisma.sale.findMany({
+      where: { shopId, status: 'COMPLETED', createdAt: { gte: from, lte: to } },
+    });
+    const sum = (f: (s: (typeof sales)[number]) => unknown) =>
+      Math.round(sales.reduce((acc, s) => acc + num(f(s)), 0) * 100) / 100;
+
+    const grouped = await this.prisma.payment.groupBy({
+      by: ['method'],
+      where: { shopId, status: 'PAID', createdAt: { gte: from, lte: to } },
+      _sum: { amount: true },
+    });
+
+    const subtotal = sum((s) => s.subtotal);
+    const cogs = sum((s) => s.cogs);
+    return {
+      from,
+      to,
+      count: sales.length,
+      subtotal,
+      discount: sum((s) => s.discount),
+      serviceCharge: sum((s) => s.serviceCharge),
+      tax: sum((s) => s.tax),
+      roundOff: sum((s) => s.roundOff),
+      total: sum((s) => s.total),
+      cogs,
+      grossProfit: Math.round((subtotal - cogs) * 100) / 100,
+      payments: grouped.map((g) => ({ method: g.method, amount: num(g._sum.amount) })),
+    };
+  }
+
+  /** Tax summary — taxable base and tax collected over a range. */
+  async getTaxSummary(shopId: string, fromISO?: string, toISO?: string) {
+    const now = new Date();
+    const from = fromISO ? new Date(fromISO) : new Date(now.getFullYear(), now.getMonth(), 1);
+    const to = toISO ? new Date(toISO) : now;
+    const sales = await this.prisma.sale.findMany({
+      where: { shopId, status: 'COMPLETED', createdAt: { gte: from, lte: to } },
+    });
+    const taxable = Math.round(sales.reduce((a, s) => a + num(s.subtotal) - num(s.discount), 0) * 100) / 100;
+    const tax = Math.round(sales.reduce((a, s) => a + num(s.tax), 0) * 100) / 100;
+    return { from, to, count: sales.length, taxable, tax };
+  }
+
   /** Profit & Loss (Income Statement) — revenue less expenses for the period. */
   async getIncomeStatement(shopId: string) {
     const accounts = await this.prisma.account.findMany({ where: { shopId } });

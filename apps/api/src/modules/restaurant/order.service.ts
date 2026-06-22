@@ -115,8 +115,10 @@ export class OrderService {
       })),
       paymentMethod: dto.paymentMethod,
       provider: dto.provider,
+      payments: dto.payments,
       customerId: dto.customerId,
       discount: dto.discount,
+      redeemPoints: dto.redeemPoints,
       note: `Order ${order.id}${order.tableId ? ' (dine-in)' : ''}`,
     });
 

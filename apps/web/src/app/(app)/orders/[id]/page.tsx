@@ -4,14 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import type { PaymentMethod, PaymentProviderName } from '@s3vya/types';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
 import { money } from '@/lib/format';
-import { Modal } from '@/components/Modal';
+import { CheckoutModal, type CheckoutBilling } from '@/components/CheckoutModal';
 
 interface Product { id: string; sku: string; name: string; salePrice: string; taxRate: string }
-interface Line { productId: string; name: string; unitPrice: number; taxRate: number; quantity: number }
+interface Line { productId: string; name: string; unitPrice: number; quantity: number }
 
 export default function OrderPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,36 +20,31 @@ export default function OrderPage() {
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [settleOpen, setSettleOpen] = useState(false);
-  const [method, setMethod] = useState<PaymentMethod>('CASH');
-  const [provider, setProvider] = useState<PaymentProviderName>('FONEPAY');
-  const [customerId, setCustomerId] = useState('');
   const [busy, setBusy] = useState(false);
 
   const { data: order } = useQuery<any>({
-    queryKey: ['order', id],
-    queryFn: async () => (await api.get(`/orders/${id}`)).data,
+    queryKey: ['order', id], queryFn: async () => (await api.get(`/orders/${id}`)).data,
   });
   const { data: products = [] } = useQuery<Product[]>({
-    queryKey: ['products'],
-    queryFn: async () => (await api.get('/products')).data,
+    queryKey: ['products'], queryFn: async () => (await api.get('/products')).data,
   });
-  const { data: customers = [] } = useQuery<{ id: string; name: string }[]>({
-    queryKey: ['customers'],
-    queryFn: async () => (await api.get('/customers')).data,
+  const { data: customers = [] } = useQuery<any[]>({
+    queryKey: ['customers'], queryFn: async () => (await api.get('/customers')).data,
+  });
+  const { data: shop } = useQuery<any>({
+    queryKey: ['shop'], queryFn: async () => (await api.get('/shop')).data,
   });
 
-  // Seed local order lines once when the order loads.
+  const taxRateOf = useMemo(() => {
+    const m = new Map(products.map((p) => [p.id, Number(p.taxRate)]));
+    return (pid: string) => m.get(pid) ?? 0;
+  }, [products]);
+
   useEffect(() => {
     if (order?.items) {
-      setLines(
-        order.items.map((i: any) => ({
-          productId: i.productId,
-          name: i.name,
-          unitPrice: Number(i.unitPrice),
-          taxRate: 0,
-          quantity: Number(i.quantity),
-        })),
-      );
+      setLines(order.items.map((i: any) => ({
+        productId: i.productId, name: i.name, unitPrice: Number(i.unitPrice), quantity: Number(i.quantity),
+      })));
     }
   }, [order?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -63,26 +57,22 @@ export default function OrderPage() {
     setLines((ls) => {
       const ex = ls.find((l) => l.productId === p.id);
       if (ex) return ls.map((l) => (l.productId === p.id ? { ...l, quantity: l.quantity + 1 } : l));
-      return [...ls, { productId: p.id, name: p.name, unitPrice: Number(p.salePrice), taxRate: Number(p.taxRate), quantity: 1 }];
+      return [...ls, { productId: p.id, name: p.name, unitPrice: Number(p.salePrice), quantity: 1 }];
     });
   const setQty = (pid: string, q: number) =>
     setLines((ls) => ls.map((l) => (l.productId === pid ? { ...l, quantity: q } : l)).filter((l) => l.quantity > 0));
 
   const subtotal = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
-  const tax = lines.reduce((s, l) => s + (l.unitPrice * l.quantity * l.taxRate) / 100, 0);
+  const tax = lines.reduce((s, l) => s + (l.unitPrice * l.quantity * taxRateOf(l.productId)) / 100, 0);
+
+  const saveItems = () =>
+    api.put(`/orders/${id}/items`, { items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })) });
 
   const save = async () => {
     setSaving(true);
-    try {
-      await api.put(`/orders/${id}/items`, {
-        items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
-      });
-      toast.success('Order saved');
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message ?? 'Save failed');
-    } finally {
-      setSaving(false);
-    }
+    try { await saveItems(); toast.success('Order saved'); }
+    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Save failed'); }
+    finally { setSaving(false); }
   };
 
   const printKot = () => {
@@ -94,29 +84,25 @@ export default function OrderPage() {
       <div>${order?.table?.name ? 'Table ' + order.table.name : order?.orderType || ''}</div>
       <div>${new Date().toLocaleString()}</div><hr/>
       <table style="width:100%">${rows}</table>
-      <script>window.onload=()=>{window.print();window.close();}</script>
-    </body></html>`);
+      <script>window.onload=()=>{window.print();window.close();}</script></body></html>`);
     w.document.close();
   };
 
-  const settle = async () => {
-    if (lines.length === 0) { toast.error('Add items first'); return; }
-    if (method === 'CREDIT' && !customerId) { toast.error('Select a customer'); return; }
+  const settle = async (billing: CheckoutBilling) => {
     setBusy(true);
     try {
-      await api.put(`/orders/${id}/items`, { items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })) });
+      await saveItems();
       const { data } = await api.post(`/orders/${id}/settle`, {
-        paymentMethod: method,
-        provider: method === 'QR' ? provider : undefined,
-        customerId: method === 'CREDIT' ? customerId : undefined,
+        payments: billing.payments,
+        customerId: billing.customerId,
+        discount: billing.discount,
+        redeemPoints: billing.redeemPoints,
       });
       toast.success(`Settled · ${data.invoiceNo}`);
       router.push('/tables');
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? 'Settle failed');
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   };
 
   const cancel = async () => {
@@ -175,29 +161,19 @@ export default function OrderPage() {
         </div>
       </div>
 
-      <Modal open={settleOpen} title="Settle order" onClose={() => setSettleOpen(false)}>
-        <div className="space-y-4">
-          <div className="text-2xl font-bold">{money(subtotal + tax, currency)}</div>
-          <div className="grid grid-cols-4 gap-2">
-            {(['CASH', 'BANK', 'QR', 'CREDIT'] as PaymentMethod[]).map((m) => (
-              <button key={m} className={method === m ? 'btn-primary' : 'btn-ghost'} onClick={() => setMethod(m)}>{m}</button>
-            ))}
-          </div>
-          {method === 'QR' && (
-            <select className="input" value={provider} onChange={(e) => setProvider(e.target.value as PaymentProviderName)}>
-              <option value="FONEPAY">Fonepay QR</option>
-              <option value="ESEWA">eSewa QR</option>
-            </select>
-          )}
-          {method === 'CREDIT' && (
-            <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-              <option value="">— select customer —</option>
-              {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          )}
-          <button className="btn-primary w-full" disabled={busy} onClick={settle}>{busy ? 'Processing…' : 'Confirm & settle'}</button>
-        </div>
-      </Modal>
+      <CheckoutModal
+        open={settleOpen}
+        onClose={() => setSettleOpen(false)}
+        currency={currency}
+        subtotal={subtotal}
+        tax={tax}
+        serviceChargeRate={Number(shop?.serviceChargeRate ?? 0)}
+        roundOffEnabled={!!shop?.roundOff}
+        customers={customers}
+        confirmLabel="Settle order"
+        busy={busy}
+        onConfirm={settle}
+      />
     </div>
   );
 }

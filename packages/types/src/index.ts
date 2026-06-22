@@ -39,8 +39,11 @@ export const ACCOUNT_CODES = {
   OWNER_EQUITY: '3000',
   RETAINED_EARNINGS: '3100',
   SALES_REVENUE: '4000',
+  SERVICE_CHARGE: '4100',
   COGS: '5000',
+  DISCOUNT_ALLOWED: '5100',
   OPERATING_EXPENSE: '6000',
+  ROUNDING: '6100',
 } as const;
 
 // ── Auth DTO shapes ──────────────────────────────────────────────────
@@ -80,13 +83,26 @@ export interface SaleItemInput {
   sku?: string;
   quantity: number;
   unitPrice?: number; // override; defaults to product.salePrice
+  discount?: number; // per-line discount amount
+}
+
+export interface PaymentSplit {
+  method: PaymentMethod;
+  provider?: PaymentProviderName;
+  amount: number;
 }
 
 export interface CreateSaleInput {
   items: SaleItemInput[];
-  paymentMethod: PaymentMethod;
+  // Single payment (back-compat) OR split payments.
+  paymentMethod?: PaymentMethod;
   provider?: PaymentProviderName;
+  payments?: PaymentSplit[];
   customerId?: string;
-  discount?: number;
+  discount?: number; // bill-level discount amount
+  discountPct?: number; // bill-level discount percent (alternative)
+  serviceChargeRate?: number; // override shop default (%)
+  redeemPoints?: number; // loyalty points to redeem (1 point = 1 currency)
+  roundOff?: boolean; // override shop default
   note?: string;
 }

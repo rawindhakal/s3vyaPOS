@@ -15,6 +15,7 @@ const NAV = [
   { href: '/reports', label: 'Reports', icon: '📊', soon: true },
   { href: '/tables', label: 'Tables', icon: '🍽️', restaurant: true },
   { href: '/kot', label: 'Kitchen (KOT)', icon: '👨‍🍳', restaurant: true },
+  { href: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
 export function Sidebar() {

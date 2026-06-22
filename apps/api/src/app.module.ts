@@ -11,6 +11,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { PartiesModule } from './modules/parties/parties.module';
 import { PurchasingModule } from './modules/purchasing/purchasing.module';
 import { RestaurantModule } from './modules/restaurant/restaurant.module';
+import { ShopModule } from './modules/shop/shop.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -26,6 +27,7 @@ import { HealthController } from './health.controller';
     PartiesModule,
     PurchasingModule,
     RestaurantModule,
+    ShopModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

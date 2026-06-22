@@ -11,6 +11,7 @@ const TABS = [
   { href: '/accounting/profit-loss', label: 'Profit & Loss' },
   { href: '/accounting/cash-book', label: 'Cash Book' },
   { href: '/accounting/bank-book', label: 'Bank Book' },
+  { href: '/accounting/day-end', label: 'Day-end' },
   { href: '/accounting/accounts', label: 'Accounts' },
 ];
 

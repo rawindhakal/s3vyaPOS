@@ -44,9 +44,23 @@ export class SetOrderItemsDto {
   items!: OrderItemDto[];
 }
 
-export class SettleOrderDto {
-  @IsEnum(PaymentMethod) paymentMethod!: PaymentMethod;
+export class SettlePaymentDto {
+  @IsEnum(PaymentMethod) method!: PaymentMethod;
   @IsOptional() @IsEnum(PaymentProvider) provider?: PaymentProvider;
+  @IsNumber() @Min(0) amount!: number;
+}
+
+export class SettleOrderDto {
+  @IsOptional() @IsEnum(PaymentMethod) paymentMethod?: PaymentMethod;
+  @IsOptional() @IsEnum(PaymentProvider) provider?: PaymentProvider;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SettlePaymentDto)
+  payments?: SettlePaymentDto[];
+
   @IsOptional() @IsString() customerId?: string;
   @IsOptional() @IsNumber() @Min(0) discount?: number;
+  @IsOptional() @IsNumber() @Min(0) redeemPoints?: number;
 }

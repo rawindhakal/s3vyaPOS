@@ -103,6 +103,9 @@ model Shop {
   address      String?
   phone        String?
   taxRate      Decimal      @default(0) @db.Decimal(5, 2)
+  serviceChargeRate Decimal @default(0) @db.Decimal(5, 2)
+  loyaltyEarnRate   Decimal @default(0) @db.Decimal(5, 2) // points earned per 100 spent
+  roundOff          Boolean @default(false)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -268,6 +271,7 @@ model Customer {
   email     String?
   address   String?
   balance   Decimal  @default(0) @db.Decimal(18, 2)
+  loyaltyPoints Decimal @default(0) @db.Decimal(18, 2)
   createdAt DateTime @default(now())
 
   shop     Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
@@ -283,11 +287,15 @@ model Sale {
   shopId     String
   invoiceNo  String
   customerId String?
-  subtotal   Decimal    @db.Decimal(18, 2)
-  discount   Decimal    @default(0) @db.Decimal(18, 2)
-  tax        Decimal    @default(0) @db.Decimal(18, 2)
-  total      Decimal    @db.Decimal(18, 2)
-  cogs       Decimal    @default(0) @db.Decimal(18, 2)
+  subtotal       Decimal    @db.Decimal(18, 2)
+  discount       Decimal    @default(0) @db.Decimal(18, 2)
+  serviceCharge  Decimal    @default(0) @db.Decimal(18, 2)
+  tax            Decimal    @default(0) @db.Decimal(18, 2)
+  roundOff       Decimal    @default(0) @db.Decimal(18, 2)
+  total          Decimal    @db.Decimal(18, 2)
+  cogs           Decimal    @default(0) @db.Decimal(18, 2)
+  loyaltyEarned  Decimal    @default(0) @db.Decimal(18, 2)
+  loyaltyRedeemed Decimal   @default(0) @db.Decimal(18, 2)
   status     SaleStatus @default(COMPLETED)
   note       String?
   journalId  String?
@@ -309,6 +317,7 @@ model SaleItem {
   name      String
   quantity  Decimal @db.Decimal(18, 3)
   unitPrice Decimal @db.Decimal(18, 2)
+  discount  Decimal @default(0) @db.Decimal(18, 2)
   unitCost  Decimal @default(0) @db.Decimal(18, 2)
   lineTotal Decimal @db.Decimal(18, 2)
 
