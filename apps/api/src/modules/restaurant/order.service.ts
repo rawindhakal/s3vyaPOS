@@ -44,6 +44,58 @@ export class OrderService {
     });
   }
 
+  // Create an order with its items in one shot (used by QR/online self-ordering).
+  async createWithItems(
+    shopId: string,
+    dto: {
+      tableId?: string;
+      orderType: 'DINE_IN' | 'TAKEAWAY' | 'COUNTER';
+      channel?: string;
+      customerName?: string;
+      phone?: string;
+      items: { productId: string; quantity: number; note?: string }[];
+    },
+  ) {
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('Order has no items');
+    }
+    if (dto.tableId) {
+      const table = await this.prisma.restaurantTable.findFirst({ where: { id: dto.tableId, shopId } });
+      if (!table) throw new NotFoundException('Table not found');
+    }
+    const products = await this.prisma.product.findMany({
+      where: { shopId, id: { in: dto.items.map((i) => i.productId) }, isActive: true },
+    });
+    const map = new Map(products.map((p) => [p.id, p]));
+    for (const i of dto.items) {
+      if (!map.has(i.productId)) throw new BadRequestException(`Product not found: ${i.productId}`);
+    }
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          shopId,
+          tableId: dto.tableId,
+          orderType: dto.orderType,
+          channel: dto.channel ?? 'QR',
+          customerName: dto.customerName,
+          phone: dto.phone,
+          items: {
+            create: dto.items.map((i) => {
+              const p = map.get(i.productId)!;
+              return { productId: p.id, name: p.name, quantity: i.quantity, unitPrice: p.salePrice, note: i.note };
+            }),
+          },
+        },
+      });
+      if (dto.tableId) {
+        await tx.restaurantTable.update({ where: { id: dto.tableId }, data: { status: 'OCCUPIED' } });
+      }
+      return created;
+    });
+    return this.get(shopId, order.id);
+  }
+
   async getOpenForTable(shopId: string, tableId: string) {
     const order = await this.prisma.order.findFirst({
       where: { shopId, tableId, status: 'OPEN' },

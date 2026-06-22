@@ -8,5 +8,6 @@ import { TableController, OrderController } from './restaurant.controller';
   imports: [PosModule],
   controllers: [TableController, OrderController],
   providers: [TableService, OrderService],
+  exports: [OrderService],
 })
 export class RestaurantModule {}

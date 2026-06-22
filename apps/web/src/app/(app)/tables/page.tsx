@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
 import { money } from '@/lib/format';
 import { Modal } from '@/components/Modal';
+import { QRCode } from '@/components/QRCode';
 
 interface Table {
   id: string;
@@ -28,10 +29,16 @@ const STATUS_STYLES: Record<Table['status'], string> = {
 
 export default function TablesPage() {
   const currency = useAuth((s) => s.user?.currency ?? 'NPR');
+  const shopId = useAuth((s) => s.user?.shopId);
   const router = useRouter();
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ name: '', area: '', seats: 4 });
+  const [qr, setQr] = useState<{ url: string; caption: string } | null>(null);
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const menuUrl = (tableId?: string) =>
+    `${origin}/m/${shopId}${tableId ? `?table=${tableId}` : ''}`;
 
   const { data: tables = [], isLoading } = useQuery<Table[]>({
     queryKey: ['tables'],
@@ -79,6 +86,7 @@ export default function TablesPage() {
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Floor / Tables</h1>
         <div className="flex gap-2">
+          <button className="btn-ghost" onClick={() => setQr({ url: menuUrl(), caption: 'Menu' })}>🔳 Menu QR</button>
           <button className="btn-ghost" onClick={() => newCounter.mutate()}>+ Counter / takeaway order</button>
           <button className="btn-primary" onClick={() => setAddOpen(true)}>+ Add table</button>
         </div>
@@ -99,22 +107,26 @@ export default function TablesPage() {
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{area}</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {list.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => openTable.mutate(t)}
-                  className={`flex flex-col items-start rounded-xl border-2 p-4 text-left shadow-sm transition ${STATUS_STYLES[t.status]}`}
-                >
-                  <div className="flex w-full items-center justify-between">
-                    <span className="text-lg font-bold">{t.name}</span>
-                    <span className="text-xs text-slate-400">{t.seats} seats</span>
-                  </div>
-                  <span className="mt-1 text-xs font-medium uppercase text-slate-500">{t.status}</span>
-                  {t.openOrderId && (
-                    <span className="mt-2 text-sm text-amber-700">
-                      {t.openOrderItems} items · {money(t.openOrderTotal, currency)}
-                    </span>
-                  )}
-                </button>
+                <div key={t.id} className={`rounded-xl border-2 p-4 shadow-sm ${STATUS_STYLES[t.status]}`}>
+                  <button onClick={() => openTable.mutate(t)} className="flex w-full flex-col items-start text-left">
+                    <div className="flex w-full items-center justify-between">
+                      <span className="text-lg font-bold">{t.name}</span>
+                      <span className="text-xs text-slate-400">{t.seats} seats</span>
+                    </div>
+                    <span className="mt-1 text-xs font-medium uppercase text-slate-500">{t.status}</span>
+                    {t.openOrderId && (
+                      <span className="mt-2 text-sm text-amber-700">
+                        {t.openOrderItems} items · {money(t.openOrderTotal, currency)}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    className="mt-2 text-xs text-slate-500 hover:text-brand"
+                    onClick={() => setQr({ url: menuUrl(t.id), caption: `Table ${t.name}` })}
+                  >
+                    🔳 Table QR
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -132,6 +144,10 @@ export default function TablesPage() {
             {addTable.isPending ? 'Saving…' : 'Save'}
           </button>
         </div>
+      </Modal>
+
+      <Modal open={!!qr} title="Scan to order" onClose={() => setQr(null)}>
+        {qr && <QRCode value={qr.url} caption={qr.caption} />}
       </Modal>
     </div>
   );

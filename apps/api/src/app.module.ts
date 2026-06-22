@@ -14,6 +14,7 @@ import { RestaurantModule } from './modules/restaurant/restaurant.module';
 import { ShopModule } from './modules/shop/shop.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { ReservationsModule } from './modules/reservations/reservations.module';
+import { PublicModule } from './modules/public/public.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -32,6 +33,7 @@ import { HealthController } from './health.controller';
     ShopModule,
     StaffModule,
     ReservationsModule,
+    PublicModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

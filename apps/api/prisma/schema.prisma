@@ -395,13 +395,16 @@ model Reservation {
 }
 
 model Order {
-  id        String      @id @default(uuid())
-  shopId    String
-  tableId   String?
-  orderType OrderType   @default(COUNTER)
-  status    OrderStatus @default(OPEN)
-  saleId    String?
-  createdAt DateTime    @default(now())
+  id           String      @id @default(uuid())
+  shopId       String
+  tableId      String?
+  orderType    OrderType   @default(COUNTER)
+  status       OrderStatus @default(OPEN)
+  saleId       String?
+  customerName String?
+  phone        String?
+  channel      String      @default("POS") // POS | QR | ONLINE
+  createdAt    DateTime    @default(now())
 
   shop  Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
   table RestaurantTable? @relation(fields: [tableId], references: [id])
