@@ -4,9 +4,11 @@ import {
   ArrayMinSize,
   IsArray,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -32,6 +34,15 @@ class PublicOrderDto {
   @ValidateNested({ each: true })
   @Type(() => PublicItemDto)
   items!: PublicItemDto[];
+}
+
+class PublicFeedbackDto {
+  @IsString() shopId!: string;
+  @IsInt() @Min(1) @Max(5) rating!: number;
+  @IsOptional() @IsString() comment?: string;
+  @IsOptional() @IsString() customerName?: string;
+  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsString() saleId?: string;
 }
 
 // Unauthenticated, customer-facing endpoints reached by scanning a table/shop QR.
@@ -77,5 +88,22 @@ export class PublicController {
     const order = await this.orders.get(shopId, id);
     if (!order) throw new NotFoundException('Order not found');
     return { id: order.id, status: order.status, orderType: order.orderType, items: order.items };
+  }
+
+  @Post('feedback')
+  async submitFeedback(@Body() dto: PublicFeedbackDto) {
+    const shop = await this.prisma.shop.findUnique({ where: { id: dto.shopId }, select: { id: true } });
+    if (!shop) throw new NotFoundException('Shop not found');
+    await this.prisma.feedback.create({
+      data: {
+        shopId: dto.shopId,
+        rating: dto.rating,
+        comment: dto.comment,
+        customerName: dto.customerName,
+        phone: dto.phone,
+        saleId: dto.saleId,
+      },
+    });
+    return { ok: true };
   }
 }

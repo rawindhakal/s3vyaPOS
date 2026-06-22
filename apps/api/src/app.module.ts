@@ -16,6 +16,8 @@ import { StaffModule } from './modules/staff/staff.module';
 import { ReservationsModule } from './modules/reservations/reservations.module';
 import { PublicModule } from './modules/public/public.module';
 import { GiftCardsModule } from './modules/giftcards/giftcards.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { FeedbackModule } from './modules/feedback/feedback.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -36,6 +38,8 @@ import { HealthController } from './health.controller';
     ReservationsModule,
     PublicModule,
     GiftCardsModule,
+    NotificationsModule,
+    FeedbackModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -119,6 +119,19 @@ enum StockMovementType {
   RECIPE_CONSUME
 }
 
+enum NotificationChannel {
+  SMS
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  LOGGED
+}
+
 // ── Tenancy & auth ────────────────────────────────────────────────────
 model Shop {
   id           String       @id @default(uuid())
@@ -152,6 +165,39 @@ model Shop {
   reservations     Reservation[]
   giftCards        GiftCard[]
   saleReturns      SaleReturn[]
+  notifications    Notification[]
+  feedback         Feedback[]
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  shopId    String
+  channel   NotificationChannel
+  to        String
+  subject   String?
+  body      String
+  status    NotificationStatus  @default(QUEUED)
+  error     String?
+  createdAt DateTime            @default(now())
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+}
+
+model Feedback {
+  id           String   @id @default(uuid())
+  shopId       String
+  rating       Int
+  comment      String?
+  customerName String?
+  phone        String?
+  saleId       String?
+  createdAt    DateTime @default(now())
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
 }
 
 model User {

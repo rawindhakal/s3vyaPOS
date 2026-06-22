@@ -17,6 +17,8 @@ const NAV = [
   { href: '/accounting/journal', label: 'Accounting', icon: '📒' },
   { href: '/reports', label: 'Reports', icon: '📊' },
   { href: '/staff', label: 'Staff', icon: '🧑‍💼' },
+  { href: '/notifications', label: 'Notifications', icon: '🔔' },
+  { href: '/feedback', label: 'Feedback', icon: '⭐' },
   { href: '/tables', label: 'Tables', icon: '🍽️', restaurant: true },
   { href: '/kot', label: 'Kitchen (KOT)', icon: '👨‍🍳', restaurant: true },
   { href: '/reservations', label: 'Reservations', icon: '📅', restaurant: true },

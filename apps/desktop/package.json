@@ -1,0 +1,30 @@
+{
+  "name": "@s3vya/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "s3vyaPOS desktop billing terminal for cashiers",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsc -p tsconfig.json && electron .",
+    "start": "electron .",
+    "package": "tsc -p tsconfig.json && electron-builder",
+    "lint": "echo \"no lint\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.6.3"
+  },
+  "build": {
+    "appId": "tech.s3vya.pos",
+    "productName": "s3vyaPOS",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "package.json"],
+    "mac": { "category": "public.app-category.business", "target": ["dmg"] },
+    "win": { "target": ["nsis"] },
+    "linux": { "target": ["AppImage"], "category": "Office" }
+  }
+}
