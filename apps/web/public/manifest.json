@@ -1,0 +1,13 @@
+{
+  "name": "s3vyaPOS",
+  "short_name": "s3vyaPOS",
+  "description": "POS + Accounting for small shops and restaurants",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f766e",
+  "theme_color": "#0f766e",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

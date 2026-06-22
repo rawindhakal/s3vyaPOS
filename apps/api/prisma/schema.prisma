@@ -1,0 +1,374 @@
+// s3vyaPOS — multi-tenant POS + double-entry accounting
+// Every business table carries shopId for tenant isolation.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  CASHIER
+  ACCOUNTANT
+}
+
+enum BusinessType {
+  RETAIL
+  RESTAURANT
+  BOTH
+}
+
+enum Plan {
+  FREE
+  STANDARD
+  PRO
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum JournalSource {
+  MANUAL
+  SALE
+  PURCHASE
+  PAYMENT
+  ADJUSTMENT
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  QR
+  CREDIT
+}
+
+enum PaymentProvider {
+  NONE
+  ESEWA
+  FONEPAY
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum SaleStatus {
+  COMPLETED
+  VOIDED
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  COUNTER
+}
+
+enum TableStatus {
+  FREE
+  OCCUPIED
+  RESERVED
+}
+
+enum OrderStatus {
+  OPEN
+  SETTLED
+  CANCELLED
+}
+
+// ── Tenancy & auth ────────────────────────────────────────────────────
+model Shop {
+  id           String       @id @default(uuid())
+  name         String
+  businessType BusinessType @default(RETAIL)
+  currency     String       @default("NPR")
+  plan         Plan         @default(FREE)
+  address      String?
+  phone        String?
+  taxRate      Decimal      @default(0) @db.Decimal(5, 2)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  users            User[]
+  accounts         Account[]
+  journalEntries   JournalEntry[]
+  products         Product[]
+  categories       Category[]
+  sales            Sale[]
+  payments         Payment[]
+  vendors          Vendor[]
+  customers        Customer[]
+  bankAccounts     BankAccount[]
+  restaurantTables RestaurantTable[]
+  orders           Order[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  shopId       String
+  email        String
+  passwordHash String
+  fullName     String
+  role         Role     @default(CASHIER)
+  active       Boolean  @default(true)
+  refreshHash  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, email])
+  @@index([shopId])
+}
+
+// ── Accounting ────────────────────────────────────────────────────────
+model Account {
+  id        String      @id @default(uuid())
+  shopId    String
+  code      String
+  name      String
+  type      AccountType
+  balance   Decimal     @default(0) @db.Decimal(18, 2)
+  isSystem  Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  shop  Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  lines JournalLine[]
+
+  @@unique([shopId, code])
+  @@index([shopId, type])
+}
+
+model JournalEntry {
+  id          String        @id @default(uuid())
+  shopId      String
+  date        DateTime      @default(now())
+  description String
+  reference   String?
+  source      JournalSource @default(MANUAL)
+  createdAt   DateTime      @default(now())
+
+  shop  Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  lines JournalLine[]
+
+  @@index([shopId, date])
+}
+
+model JournalLine {
+  id        String  @id @default(uuid())
+  journalId String
+  accountId String
+  debit     Decimal @default(0) @db.Decimal(18, 2)
+  credit    Decimal @default(0) @db.Decimal(18, 2)
+
+  journal JournalEntry @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  account Account      @relation(fields: [accountId], references: [id])
+
+  @@index([journalId])
+  @@index([accountId])
+}
+
+model BankAccount {
+  id            String  @id @default(uuid())
+  shopId        String
+  name          String
+  bankName      String?
+  accountNumber String?
+  accountId     String? // links to chart-of-accounts Account
+  createdAt     DateTime @default(now())
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+}
+
+// ── Inventory ─────────────────────────────────────────────────────────
+model Category {
+  id     String @id @default(uuid())
+  shopId String
+  name   String
+
+  shop     Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([shopId, name])
+}
+
+model Product {
+  id            String   @id @default(uuid())
+  shopId        String
+  sku           String
+  barcode       String?
+  name          String
+  description   String?
+  categoryId    String?
+  purchasePrice Decimal  @default(0) @db.Decimal(18, 2)
+  salePrice     Decimal  @default(0) @db.Decimal(18, 2)
+  stock         Decimal  @default(0) @db.Decimal(18, 3)
+  taxRate       Decimal  @default(0) @db.Decimal(5, 2)
+  unit          String   @default("pcs")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  shop      Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  category  Category?   @relation(fields: [categoryId], references: [id])
+  saleItems SaleItem[]
+  orderItems OrderItem[]
+
+  @@unique([shopId, sku])
+  @@unique([shopId, barcode])
+  @@index([shopId, name])
+}
+
+// ── Parties ───────────────────────────────────────────────────────────
+model Vendor {
+  id        String   @id @default(uuid())
+  shopId    String
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  balance   Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt DateTime @default(now())
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  shopId    String
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  balance   Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt DateTime @default(now())
+
+  shop  Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sales Sale[]
+
+  @@index([shopId])
+}
+
+// ── Sales / POS ───────────────────────────────────────────────────────
+model Sale {
+  id         String     @id @default(uuid())
+  shopId     String
+  invoiceNo  String
+  customerId String?
+  subtotal   Decimal    @db.Decimal(18, 2)
+  discount   Decimal    @default(0) @db.Decimal(18, 2)
+  tax        Decimal    @default(0) @db.Decimal(18, 2)
+  total      Decimal    @db.Decimal(18, 2)
+  cogs       Decimal    @default(0) @db.Decimal(18, 2)
+  status     SaleStatus @default(COMPLETED)
+  note       String?
+  journalId  String?
+  createdAt  DateTime   @default(now())
+
+  shop     Shop       @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customer Customer?  @relation(fields: [customerId], references: [id])
+  items    SaleItem[]
+  payments Payment[]
+
+  @@unique([shopId, invoiceNo])
+  @@index([shopId, createdAt])
+}
+
+model SaleItem {
+  id        String  @id @default(uuid())
+  saleId    String
+  productId String
+  name      String
+  quantity  Decimal @db.Decimal(18, 3)
+  unitPrice Decimal @db.Decimal(18, 2)
+  unitCost  Decimal @default(0) @db.Decimal(18, 2)
+  lineTotal Decimal @db.Decimal(18, 2)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+}
+
+model Payment {
+  id          String          @id @default(uuid())
+  shopId      String
+  saleId      String?
+  method      PaymentMethod
+  provider    PaymentProvider @default(NONE)
+  amount      Decimal         @db.Decimal(18, 2)
+  status      PaymentStatus   @default(PAID)
+  externalRef String?
+  qrPayload   String?
+  createdAt   DateTime        @default(now())
+
+  shop Shop  @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sale Sale? @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@index([saleId])
+}
+
+// ── Restaurant (modeled now, UI in M4) ────────────────────────────────
+model RestaurantTable {
+  id       String      @id @default(uuid())
+  shopId   String
+  name     String
+  area     String?
+  seats    Int         @default(4)
+  status   TableStatus @default(FREE)
+
+  shop   Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@unique([shopId, name])
+  @@index([shopId])
+}
+
+model Order {
+  id        String      @id @default(uuid())
+  shopId    String
+  tableId   String?
+  orderType OrderType   @default(COUNTER)
+  status    OrderStatus @default(OPEN)
+  saleId    String?
+  createdAt DateTime    @default(now())
+
+  shop  Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  table RestaurantTable? @relation(fields: [tableId], references: [id])
+  items OrderItem[]
+
+  @@index([shopId, status])
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  productId String
+  name      String
+  quantity  Decimal @db.Decimal(18, 3)
+  unitPrice Decimal @db.Decimal(18, 2)
+  note      String?
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
