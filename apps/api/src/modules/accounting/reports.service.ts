@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AccountType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ACCOUNT_CODES } from './chart-of-accounts';
 
 const num = (d: unknown) => Number(d ?? 0);
 
@@ -70,6 +71,46 @@ export class ReportsService {
       balanced:
         Math.round((totalAssets - (totalLiabilities + totalEquity)) * 100) / 100 === 0,
     };
+  }
+
+  /** Profit & Loss (Income Statement) — revenue less expenses for the period. */
+  async getIncomeStatement(shopId: string) {
+    const accounts = await this.prisma.account.findMany({ where: { shopId } });
+    const rows = (type: AccountType) =>
+      accounts
+        .filter((a) => a.type === type)
+        .map((a) => ({ code: a.code, name: a.name, amount: num(a.balance) }));
+
+    const revenue = rows('REVENUE');
+    const expense = rows('EXPENSE');
+    const round = (n: number) => Math.round(n * 100) / 100;
+    const totalRevenue = round(revenue.reduce((s, r) => s + r.amount, 0));
+    const totalExpense = round(expense.reduce((s, r) => s + r.amount, 0));
+    return {
+      revenue,
+      expense,
+      totalRevenue,
+      totalExpense,
+      netIncome: round(totalRevenue - totalExpense),
+    };
+  }
+
+  /** Cash Book — ledger of the Cash account. */
+  async getCashBook(shopId: string) {
+    return this.getLedgerByCode(shopId, ACCOUNT_CODES.CASH);
+  }
+
+  /** Bank Book — ledger of the Bank account. */
+  async getBankBook(shopId: string) {
+    return this.getLedgerByCode(shopId, ACCOUNT_CODES.BANK);
+  }
+
+  async getLedgerByCode(shopId: string, code: string) {
+    const account = await this.prisma.account.findUnique({
+      where: { shopId_code: { shopId, code } },
+    });
+    if (!account) return { account: null, entries: [] };
+    return this.getLedger(shopId, account.id);
   }
 
   /** General ledger for one account (used for Ledger / Cash Book / Bank Book). */
