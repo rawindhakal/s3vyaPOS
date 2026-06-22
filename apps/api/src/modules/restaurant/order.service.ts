@@ -171,6 +171,7 @@ export class OrderService {
       customerId: dto.customerId,
       discount: dto.discount,
       redeemPoints: dto.redeemPoints,
+      tip: dto.tip,
       note: `Order ${order.id}${order.tableId ? ' (dine-in)' : ''}`,
     });
 

@@ -18,6 +18,10 @@ function cashAccountCode(method: PaymentMethod): string {
       return ACCOUNT_CODES.QR_CLEARING;
     case 'CREDIT':
       return ACCOUNT_CODES.ACCOUNTS_RECEIVABLE;
+    case 'GIFT_CARD':
+      return ACCOUNT_CODES.GIFT_CARD_LIABILITY;
+    case 'STORE_CREDIT':
+      return ACCOUNT_CODES.STORE_CREDIT_LIABILITY;
     default:
       return ACCOUNT_CODES.CASH;
   }
@@ -94,21 +98,47 @@ export class SalesService {
       const total = doRound ? Math.round(preRound) : preRound;
       const roundOff = round2(total - preRound);
       const cogs = round2(lines.reduce((s, l) => s + l.unitCost * l.quantity, 0));
+      const tip = round2(dto.tip ?? 0);
+      const payable = round2(total + tip); // tip is collected on top of the bill
 
-      // 3. Payments (single or split). Sum must equal total.
+      // 3. Payments (single or split). Sum must equal payable (total + tip).
       const splits: PaymentSplitDto[] =
         dto.payments && dto.payments.length > 0
           ? dto.payments
-          : [{ method: dto.paymentMethod ?? 'CASH', provider: dto.provider, amount: total }];
+          : [{ method: dto.paymentMethod ?? 'CASH', provider: dto.provider, amount: payable }];
       const paid = round2(splits.reduce((s, p) => s + round2(p.amount), 0));
-      if (Math.abs(paid - total) > 0.01) {
-        throw new BadRequestException(`Payments ${paid} do not match total ${total}`);
+      if (Math.abs(paid - payable) > 0.01) {
+        throw new BadRequestException(`Payments ${paid} do not match total ${payable}`);
       }
       const creditPortion = round2(
         splits.filter((p) => p.method === 'CREDIT').reduce((s, p) => s + round2(p.amount), 0),
       );
       if (creditPortion > 0 && !dto.customerId) {
         throw new BadRequestException('Credit sales require a customer');
+      }
+
+      // Validate & apply gift-card / store-credit tenders.
+      for (const p of splits) {
+        const amt = round2(p.amount);
+        if (p.method === 'GIFT_CARD') {
+          if (!p.cardCode) throw new BadRequestException('Gift card code required');
+          const card = await tx.giftCard.findUnique({
+            where: { shopId_code: { shopId, code: p.cardCode } },
+          });
+          if (!card || card.status !== 'ACTIVE') throw new BadRequestException('Invalid gift card');
+          if (Number(card.balance) < amt) throw new BadRequestException('Insufficient gift card balance');
+          const newBal = round2(Number(card.balance) - amt);
+          await tx.giftCard.update({
+            where: { id: card.id },
+            data: { balance: newBal, status: newBal <= 0 ? 'USED' : 'ACTIVE' },
+          });
+        }
+        if (p.method === 'STORE_CREDIT') {
+          if (!dto.customerId) throw new BadRequestException('Store credit needs a customer');
+          const c = await tx.customer.findFirst({ where: { id: dto.customerId, shopId } });
+          if (!c || Number(c.storeCredit) < amt) throw new BadRequestException('Insufficient store credit');
+          await tx.customer.update({ where: { id: dto.customerId }, data: { storeCredit: { decrement: amt } } });
+        }
       }
 
       // 4. Invoice + persist sale.
@@ -130,6 +160,7 @@ export class SalesService {
           serviceCharge,
           tax,
           roundOff,
+          tip,
           total,
           cogs,
           loyaltyEarned,
@@ -179,6 +210,7 @@ export class SalesService {
             amount: round2(p.amount),
             status,
             qrPayload,
+            externalRef: p.method === 'GIFT_CARD' ? p.cardCode : undefined,
           },
         });
       }
@@ -200,6 +232,7 @@ export class SalesService {
         jl.push({ accountCode: cashAccountCode(p.method), debit: round2(p.amount) });
       }
       jl.push({ accountCode: ACCOUNT_CODES.SALES_REVENUE, credit: subtotal });
+      if (tip > 0) jl.push({ accountCode: ACCOUNT_CODES.TIPS_PAYABLE, credit: tip });
       if (totalDiscount > 0) jl.push({ accountCode: ACCOUNT_CODES.DISCOUNT_ALLOWED, debit: totalDiscount });
       if (tax > 0) jl.push({ accountCode: ACCOUNT_CODES.SALES_TAX_PAYABLE, credit: tax });
       if (serviceCharge > 0) jl.push({ accountCode: ACCOUNT_CODES.SERVICE_CHARGE, credit: serviceCharge });

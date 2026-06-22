@@ -69,6 +69,7 @@ export default function PosPage() {
         discount: billing.discount,
         customerId: billing.customerId,
         redeemPoints: billing.redeemPoints,
+        tip: billing.tip,
         payments: billing.payments,
       });
       setReceipt(data);

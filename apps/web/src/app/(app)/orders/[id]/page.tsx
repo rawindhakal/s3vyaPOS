@@ -97,6 +97,7 @@ export default function OrderPage() {
         customerId: billing.customerId,
         discount: billing.discount,
         redeemPoints: billing.redeemPoints,
+        tip: billing.tip,
       });
       toast.success(`Settled · ${data.invoiceNo}`);
       router.push('/tables');

@@ -48,6 +48,7 @@ export class SettlePaymentDto {
   @IsEnum(PaymentMethod) method!: PaymentMethod;
   @IsOptional() @IsEnum(PaymentProvider) provider?: PaymentProvider;
   @IsNumber() @Min(0) amount!: number;
+  @IsOptional() @IsString() cardCode?: string;
 }
 
 export class SettleOrderDto {
@@ -63,4 +64,5 @@ export class SettleOrderDto {
   @IsOptional() @IsString() customerId?: string;
   @IsOptional() @IsNumber() @Min(0) discount?: number;
   @IsOptional() @IsNumber() @Min(0) redeemPoints?: number;
+  @IsOptional() @IsNumber() @Min(0) tip?: number;
 }

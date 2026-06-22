@@ -26,6 +26,7 @@ export class PaymentSplitDto {
   @IsEnum(PaymentMethod) method!: PaymentMethod;
   @IsOptional() @IsEnum(PaymentProvider) provider?: PaymentProvider;
   @IsNumber() @Min(0) amount!: number;
+  @IsOptional() @IsString() cardCode?: string; // for GIFT_CARD tender
 }
 
 export class CreateSaleDto {
@@ -51,6 +52,7 @@ export class CreateSaleDto {
   @IsOptional() @IsNumber() @Min(0) discountPct?: number; // bill-level discount %
   @IsOptional() @IsNumber() @Min(0) serviceChargeRate?: number; // override shop default %
   @IsOptional() @IsNumber() @Min(0) redeemPoints?: number; // loyalty points to redeem
+  @IsOptional() @IsNumber() @Min(0) tip?: number;
   @IsOptional() @IsBoolean() roundOff?: boolean;
   @IsOptional() @IsString() note?: string;
 }

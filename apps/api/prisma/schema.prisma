@@ -50,6 +50,15 @@ enum PaymentMethod {
   BANK
   QR
   CREDIT
+  GIFT_CARD
+  STORE_CREDIT
+}
+
+enum GiftCardStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  CANCELLED
 }
 
 enum PaymentProvider {
@@ -132,6 +141,8 @@ model Shop {
   purchases        Purchase[]
   partyPayments    PartyPayment[]
   reservations     Reservation[]
+  giftCards        GiftCard[]
+  saleReturns      SaleReturn[]
 }
 
 model User {
@@ -283,11 +294,13 @@ model Customer {
   address   String?
   balance   Decimal  @default(0) @db.Decimal(18, 2)
   loyaltyPoints Decimal @default(0) @db.Decimal(18, 2)
+  storeCredit   Decimal @default(0) @db.Decimal(18, 2)
   createdAt DateTime @default(now())
 
-  shop     Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  sales    Sale[]
-  payments PartyPayment[]
+  shop      Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sales     Sale[]
+  payments  PartyPayment[]
+  giftCards GiftCard[]
 
   @@index([shopId])
 }
@@ -304,7 +317,9 @@ model Sale {
   serviceCharge  Decimal    @default(0) @db.Decimal(18, 2)
   tax            Decimal    @default(0) @db.Decimal(18, 2)
   roundOff       Decimal    @default(0) @db.Decimal(18, 2)
+  tip            Decimal    @default(0) @db.Decimal(18, 2)
   total          Decimal    @db.Decimal(18, 2)
+  refundedTotal  Decimal    @default(0) @db.Decimal(18, 2)
   cogs           Decimal    @default(0) @db.Decimal(18, 2)
   loyaltyEarned  Decimal    @default(0) @db.Decimal(18, 2)
   loyaltyRedeemed Decimal   @default(0) @db.Decimal(18, 2)
@@ -318,6 +333,7 @@ model Sale {
   user     User?      @relation(fields: [userId], references: [id])
   items    SaleItem[]
   payments Payment[]
+  returns  SaleReturn[]
 
   @@unique([shopId, invoiceNo])
   @@index([shopId, createdAt])
@@ -374,6 +390,59 @@ model RestaurantTable {
 
   @@unique([shopId, name])
   @@index([shopId])
+}
+
+model GiftCard {
+  id             String         @id @default(uuid())
+  shopId         String
+  code           String
+  initialBalance Decimal        @db.Decimal(18, 2)
+  balance        Decimal        @db.Decimal(18, 2)
+  status         GiftCardStatus @default(ACTIVE)
+  customerId     String?
+  expiresAt      DateTime?
+  createdAt      DateTime       @default(now())
+
+  shop     Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@unique([shopId, code])
+  @@index([shopId])
+}
+
+model SaleReturn {
+  id           String   @id @default(uuid())
+  shopId       String
+  saleId       String
+  subtotal     Decimal  @db.Decimal(18, 2)
+  tax          Decimal  @default(0) @db.Decimal(18, 2)
+  total        Decimal  @db.Decimal(18, 2)
+  cogs         Decimal  @default(0) @db.Decimal(18, 2)
+  refundMethod PaymentMethod
+  journalId    String?
+  note         String?
+  createdAt    DateTime @default(now())
+
+  shop  Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sale  Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  items SaleReturnItem[]
+
+  @@index([shopId, createdAt])
+}
+
+model SaleReturnItem {
+  id        String  @id @default(uuid())
+  returnId  String
+  productId String
+  name      String
+  quantity  Decimal @db.Decimal(18, 3)
+  unitPrice Decimal @db.Decimal(18, 2)
+  unitCost  Decimal @default(0) @db.Decimal(18, 2)
+  lineTotal Decimal @db.Decimal(18, 2)
+
+  saleReturn SaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
 }
 
 model Reservation {

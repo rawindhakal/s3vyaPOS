@@ -15,7 +15,7 @@ export const ACCOUNT_TYPES = [
 ] as const;
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
 
-export const PAYMENT_METHODS = ['CASH', 'BANK', 'QR', 'CREDIT'] as const;
+export const PAYMENT_METHODS = ['CASH', 'BANK', 'QR', 'CREDIT', 'GIFT_CARD', 'STORE_CREDIT'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export const PAYMENT_PROVIDERS = ['NONE', 'ESEWA', 'FONEPAY'] as const;

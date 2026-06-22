@@ -12,6 +12,7 @@ const NAV = [
   { href: '/purchases', label: 'Purchases', icon: '🛒' },
   { href: '/parties', label: 'Vendors & Customers', icon: '👥' },
   { href: '/payments', label: 'Payments', icon: '💳' },
+  { href: '/gift-cards', label: 'Gift Cards', icon: '🎁' },
   { href: '/accounting/journal', label: 'Accounting', icon: '📒' },
   { href: '/reports', label: 'Reports', icon: '📊' },
   { href: '/staff', label: 'Staff', icon: '🧑‍💼' },
