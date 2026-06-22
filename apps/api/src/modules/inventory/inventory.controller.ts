@@ -23,6 +23,11 @@ export class InventoryController {
     return this.products.list(shopId, search);
   }
 
+  @Get('valuation')
+  valuation(@CurrentUser('shopId') shopId: string) {
+    return this.products.valuation(shopId);
+  }
+
   @Get('lookup/:code')
   lookup(@CurrentUser('shopId') shopId: string, @Param('code') code: string) {
     return this.products.findByCode(shopId, code);

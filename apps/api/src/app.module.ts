@@ -8,6 +8,8 @@ import { AccountingModule } from './modules/accounting/accounting.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { PosModule } from './modules/pos/pos.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { PartiesModule } from './modules/parties/parties.module';
+import { PurchasingModule } from './modules/purchasing/purchasing.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -20,6 +22,8 @@ import { HealthController } from './health.controller';
     InventoryModule,
     PosModule,
     PaymentsModule,
+    PartiesModule,
+    PurchasingModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

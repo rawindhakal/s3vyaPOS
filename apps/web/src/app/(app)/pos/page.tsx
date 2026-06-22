@@ -32,12 +32,18 @@ export default function PosPage() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>('CASH');
   const [provider, setProvider] = useState<PaymentProviderName>('FONEPAY');
+  const [customerId, setCustomerId] = useState('');
   const [receipt, setReceipt] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ['products'],
     queryFn: async () => (await api.get('/products')).data,
+  });
+
+  const { data: customers = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['customers'],
+    queryFn: async () => (await api.get('/customers')).data,
   });
 
   const filtered = useMemo(() => {
@@ -73,12 +79,17 @@ export default function PosPage() {
 
   const checkout = async () => {
     if (cart.lines.length === 0) return;
+    if (method === 'CREDIT' && !customerId) {
+      toast.error('Select a customer for a credit sale');
+      return;
+    }
     setSubmitting(true);
     try {
       const { data } = await api.post('/sales', {
         items: cart.lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
         paymentMethod: method,
         provider: method === 'QR' ? provider : undefined,
+        customerId: method === 'CREDIT' ? customerId : undefined,
       });
       setReceipt(data);
       cart.clear();
@@ -185,8 +196,8 @@ export default function PosPage() {
       <Modal open={checkoutOpen} title="Checkout" onClose={() => setCheckoutOpen(false)}>
         <div className="space-y-4">
           <div className="text-2xl font-bold">{money(cart.total(), currency)}</div>
-          <div className="grid grid-cols-3 gap-2">
-            {(['CASH', 'BANK', 'QR'] as PaymentMethod[]).map((m) => (
+          <div className="grid grid-cols-4 gap-2">
+            {(['CASH', 'BANK', 'QR', 'CREDIT'] as PaymentMethod[]).map((m) => (
               <button
                 key={m}
                 className={method === m ? 'btn-primary' : 'btn-ghost'}
@@ -200,6 +211,12 @@ export default function PosPage() {
             <select className="input" value={provider} onChange={(e) => setProvider(e.target.value as PaymentProviderName)}>
               <option value="FONEPAY">Fonepay QR</option>
               <option value="ESEWA">eSewa QR</option>
+            </select>
+          )}
+          {method === 'CREDIT' && (
+            <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+              <option value="">— select customer —</option>
+              {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
           <button className="btn-primary w-full" disabled={submitting} onClick={checkout}>

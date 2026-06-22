@@ -88,6 +88,11 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PartyPaymentType {
+  VENDOR_PAYMENT
+  CUSTOMER_RECEIPT
+}
+
 // ── Tenancy & auth ────────────────────────────────────────────────────
 model Shop {
   id           String       @id @default(uuid())
@@ -113,6 +118,8 @@ model Shop {
   bankAccounts     BankAccount[]
   restaurantTables RestaurantTable[]
   orders           Order[]
+  purchases        Purchase[]
+  partyPayments    PartyPayment[]
 }
 
 model User {
@@ -224,10 +231,11 @@ model Product {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  shop      Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  category  Category?   @relation(fields: [categoryId], references: [id])
-  saleItems SaleItem[]
-  orderItems OrderItem[]
+  shop          Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  saleItems     SaleItem[]
+  orderItems    OrderItem[]
+  purchaseItems PurchaseItem[]
 
   @@unique([shopId, sku])
   @@unique([shopId, barcode])
@@ -245,7 +253,9 @@ model Vendor {
   balance   Decimal  @default(0) @db.Decimal(18, 2)
   createdAt DateTime @default(now())
 
-  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shop      Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  purchases Purchase[]
+  payments  PartyPayment[]
 
   @@index([shopId])
 }
@@ -260,8 +270,9 @@ model Customer {
   balance   Decimal  @default(0) @db.Decimal(18, 2)
   createdAt DateTime @default(now())
 
-  shop  Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  sales Sale[]
+  shop     Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sales    Sale[]
+  payments PartyPayment[]
 
   @@index([shopId])
 }
@@ -371,4 +382,62 @@ model OrderItem {
   product Product @relation(fields: [productId], references: [id])
 
   @@index([orderId])
+}
+
+// ── Purchasing (M2) ───────────────────────────────────────────────────
+model Purchase {
+  id            String        @id @default(uuid())
+  shopId        String
+  billNo        String
+  vendorId      String?
+  subtotal      Decimal       @db.Decimal(18, 2)
+  discount      Decimal       @default(0) @db.Decimal(18, 2)
+  tax           Decimal       @default(0) @db.Decimal(18, 2)
+  total         Decimal       @db.Decimal(18, 2)
+  paymentMethod PaymentMethod @default(CREDIT)
+  note          String?
+  journalId     String?
+  createdAt     DateTime      @default(now())
+
+  shop   Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  vendor Vendor?        @relation(fields: [vendorId], references: [id])
+  items  PurchaseItem[]
+
+  @@unique([shopId, billNo])
+  @@index([shopId, createdAt])
+}
+
+model PurchaseItem {
+  id         String  @id @default(uuid())
+  purchaseId String
+  productId  String
+  name       String
+  quantity   Decimal @db.Decimal(18, 3)
+  unitCost   Decimal @db.Decimal(18, 2)
+  lineTotal  Decimal @db.Decimal(18, 2)
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
+
+  @@index([purchaseId])
+}
+
+// Settlements: paying a vendor (AP↓) or receiving from a customer (AR↓).
+model PartyPayment {
+  id         String           @id @default(uuid())
+  shopId     String
+  type       PartyPaymentType
+  vendorId   String?
+  customerId String?
+  method     PaymentMethod    @default(CASH)
+  amount     Decimal          @db.Decimal(18, 2)
+  note       String?
+  journalId  String?
+  createdAt  DateTime         @default(now())
+
+  shop     Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  vendor   Vendor?   @relation(fields: [vendorId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([shopId, createdAt])
 }

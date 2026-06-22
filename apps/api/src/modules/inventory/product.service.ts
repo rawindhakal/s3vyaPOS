@@ -26,6 +26,28 @@ export class ProductService {
     });
   }
 
+  // Inventory valuation at latest cost (stock * purchasePrice).
+  async valuation(shopId: string) {
+    const products = await this.prisma.product.findMany({
+      where: { shopId, isActive: true },
+      orderBy: { name: 'asc' },
+    });
+    const rows = products.map((p) => {
+      const stock = Number(p.stock);
+      const cost = Number(p.purchasePrice);
+      return {
+        id: p.id,
+        sku: p.sku,
+        name: p.name,
+        stock,
+        unitCost: cost,
+        value: Math.round(stock * cost * 100) / 100,
+      };
+    });
+    const totalValue = Math.round(rows.reduce((s, r) => s + r.value, 0) * 100) / 100;
+    return { rows, totalValue };
+  }
+
   async findByCode(shopId: string, code: string) {
     return this.prisma.product.findFirst({
       where: {
