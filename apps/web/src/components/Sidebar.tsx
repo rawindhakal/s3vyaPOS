@@ -13,7 +13,8 @@ const NAV = [
   { href: '/parties', label: 'Vendors & Customers', icon: '👥' },
   { href: '/accounting/journal', label: 'Accounting', icon: '📒' },
   { href: '/reports', label: 'Reports', icon: '📊', soon: true },
-  { href: '/tables', label: 'Tables', icon: '🍽️', soon: true, restaurant: true },
+  { href: '/tables', label: 'Tables', icon: '🍽️', restaurant: true },
+  { href: '/kot', label: 'Kitchen (KOT)', icon: '👨‍🍳', restaurant: true },
 ];
 
 export function Sidebar() {

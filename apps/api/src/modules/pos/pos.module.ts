@@ -8,5 +8,6 @@ import { SalesController } from './sales.controller';
   imports: [AccountingModule, PaymentsModule],
   controllers: [SalesController],
   providers: [SalesService],
+  exports: [SalesService],
 })
 export class PosModule {}

@@ -10,6 +10,7 @@ import { PosModule } from './modules/pos/pos.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PartiesModule } from './modules/parties/parties.module';
 import { PurchasingModule } from './modules/purchasing/purchasing.module';
+import { RestaurantModule } from './modules/restaurant/restaurant.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -24,6 +25,7 @@ import { HealthController } from './health.controller';
     PaymentsModule,
     PartiesModule,
     PurchasingModule,
+    RestaurantModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
