@@ -73,6 +73,73 @@ export class ReportsService {
     };
   }
 
+  private range(fromISO?: string, toISO?: string) {
+    const now = new Date();
+    const from = fromISO ? new Date(fromISO) : new Date(now.getFullYear(), now.getMonth(), 1);
+    const to = toISO ? new Date(toISO) : now;
+    return { from, to };
+  }
+
+  /** Top-selling items by quantity and revenue. */
+  async getTopItems(shopId: string, fromISO?: string, toISO?: string, limit = 15) {
+    const { from, to } = this.range(fromISO, toISO);
+    const items = await this.prisma.saleItem.findMany({
+      where: { sale: { shopId, status: 'COMPLETED', createdAt: { gte: from, lte: to } } },
+      select: { name: true, quantity: true, lineTotal: true },
+    });
+    const map = new Map<string, { name: string; qty: number; revenue: number }>();
+    for (const it of items) {
+      const row = map.get(it.name) ?? { name: it.name, qty: 0, revenue: 0 };
+      row.qty += num(it.quantity);
+      row.revenue += num(it.lineTotal);
+      map.set(it.name, row);
+    }
+    return [...map.values()]
+      .map((r) => ({ ...r, qty: Math.round(r.qty * 1000) / 1000, revenue: Math.round(r.revenue * 100) / 100 }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, limit);
+  }
+
+  /** Sales grouped by the staff member who billed (staff performance). */
+  async getSalesByStaff(shopId: string, fromISO?: string, toISO?: string) {
+    const { from, to } = this.range(fromISO, toISO);
+    const sales = await this.prisma.sale.findMany({
+      where: { shopId, status: 'COMPLETED', createdAt: { gte: from, lte: to } },
+      select: { total: true, user: { select: { id: true, fullName: true } } },
+    });
+    const map = new Map<string, { name: string; count: number; total: number }>();
+    for (const s of sales) {
+      const key = s.user?.id ?? 'unassigned';
+      const row = map.get(key) ?? { name: s.user?.fullName ?? 'Unassigned', count: 0, total: 0 };
+      row.count += 1;
+      row.total += num(s.total);
+      map.set(key, row);
+    }
+    return [...map.values()]
+      .map((r) => ({ ...r, total: Math.round(r.total * 100) / 100 }))
+      .sort((a, b) => b.total - a.total);
+  }
+
+  /** Sales grouped by product category. */
+  async getSalesByCategory(shopId: string, fromISO?: string, toISO?: string) {
+    const { from, to } = this.range(fromISO, toISO);
+    const items = await this.prisma.saleItem.findMany({
+      where: { sale: { shopId, status: 'COMPLETED', createdAt: { gte: from, lte: to } } },
+      select: { lineTotal: true, quantity: true, product: { select: { category: { select: { name: true } } } } },
+    });
+    const map = new Map<string, { category: string; qty: number; revenue: number }>();
+    for (const it of items) {
+      const cat = it.product?.category?.name ?? 'Uncategorized';
+      const row = map.get(cat) ?? { category: cat, qty: 0, revenue: 0 };
+      row.qty += num(it.quantity);
+      row.revenue += num(it.lineTotal);
+      map.set(cat, row);
+    }
+    return [...map.values()]
+      .map((r) => ({ ...r, qty: Math.round(r.qty * 1000) / 1000, revenue: Math.round(r.revenue * 100) / 100 }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }
+
   /** Day-end (Z) report — sales summary + payment-mode breakdown for a date range. */
   async getDayEnd(shopId: string, fromISO?: string, toISO?: string) {
     const now = new Date();

@@ -14,15 +14,18 @@ interface Product {
   sku: string;
   barcode: string | null;
   name: string;
+  categoryId: string | null;
   purchasePrice: string;
   salePrice: string;
   stock: string;
   taxRate: string;
 }
+interface Category { id: string; name: string }
 
 const empty = {
   name: '',
   barcode: '',
+  categoryId: '',
   purchasePrice: 0,
   salePrice: 0,
   stock: 0,
@@ -36,10 +39,22 @@ export default function ProductsPage() {
   const [form, setForm] = useState<any>(empty);
   const [editing, setEditing] = useState<string | null>(null);
   const [barcodeFor, setBarcodeFor] = useState<Product | null>(null);
+  const [catOpen, setCatOpen] = useState(false);
+  const [newCat, setNewCat] = useState('');
 
   const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ['products'],
     queryFn: async () => (await api.get('/products')).data,
+  });
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['categories'],
+    queryFn: async () => (await api.get('/products/categories')).data,
+  });
+
+  const addCategory = useMutation({
+    mutationFn: () => api.post('/products/categories', { name: newCat }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['categories'] }); setNewCat(''); toast.success('Category added'); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed'),
   });
 
   const save = useMutation({
@@ -47,6 +62,7 @@ export default function ProductsPage() {
       const payload = {
         name: form.name,
         barcode: form.barcode || undefined,
+        categoryId: form.categoryId || undefined,
         purchasePrice: Number(form.purchasePrice),
         salePrice: Number(form.salePrice),
         stock: Number(form.stock),
@@ -76,6 +92,7 @@ export default function ProductsPage() {
     setForm({
       name: p.name,
       barcode: p.barcode ?? '',
+      categoryId: p.categoryId ?? '',
       purchasePrice: Number(p.purchasePrice),
       salePrice: Number(p.salePrice),
       stock: Number(p.stock),
@@ -91,9 +108,10 @@ export default function ProductsPage() {
     <div className="p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Products</h1>
-        <button className="btn-primary" onClick={openNew}>
-          + Add product
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-ghost" onClick={() => setCatOpen(true)}>Categories</button>
+          <button className="btn-primary" onClick={openNew}>+ Add product</button>
+        </div>
       </div>
 
       <div className="card overflow-x-auto">
@@ -138,6 +156,10 @@ export default function ProductsPage() {
         <div className="space-y-3">
           <input className="input" placeholder="Name" value={form.name} onChange={set('name')} />
           <input className="input" placeholder="Barcode (optional — auto SKU if blank)" value={form.barcode} onChange={set('barcode')} />
+          <select className="input" value={form.categoryId} onChange={set('categoryId')}>
+            <option value="">No category</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
           <div className="grid grid-cols-2 gap-3">
             <label className="text-sm">Cost
               <input className="input" type="number" value={form.purchasePrice} onChange={set('purchasePrice')} />
@@ -160,6 +182,19 @@ export default function ProductsPage() {
 
       <Modal open={!!barcodeFor} title={barcodeFor?.name} onClose={() => setBarcodeFor(null)}>
         {barcodeFor && <BarcodeGenerator value={barcodeFor.barcode || barcodeFor.sku} label={barcodeFor.name} />}
+      </Modal>
+
+      <Modal open={catOpen} title="Menu categories" onClose={() => setCatOpen(false)}>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <input className="input" placeholder="New category" value={newCat} onChange={(e) => setNewCat(e.target.value)} />
+            <button className="btn-primary" disabled={!newCat || addCategory.isPending} onClick={() => addCategory.mutate()}>Add</button>
+          </div>
+          <ul className="space-y-1 text-sm">
+            {categories.map((c) => <li key={c.id} className="rounded bg-slate-50 px-3 py-2">{c.name}</li>)}
+            {categories.length === 0 && <li className="text-slate-400">No categories yet.</li>}
+          </ul>
+        </div>
       </Modal>
     </div>
   );

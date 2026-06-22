@@ -14,7 +14,7 @@ import { CheckoutModal, type CheckoutBilling } from '@/components/CheckoutModal'
 
 interface Product {
   id: string; sku: string; barcode: string | null; name: string;
-  salePrice: string; taxRate: string; stock: string;
+  salePrice: string; taxRate: string; stock: string; categoryId: string | null;
 }
 
 export default function PosPage() {
@@ -27,9 +27,13 @@ export default function PosPage() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [receipt, setReceipt] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [cat, setCat] = useState('');
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ['products'], queryFn: async () => (await api.get('/products')).data,
+  });
+  const { data: categories = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['categories'], queryFn: async () => (await api.get('/products/categories')).data,
   });
   const { data: customers = [] } = useQuery<any[]>({
     queryKey: ['customers'], queryFn: async () => (await api.get('/customers')).data,
@@ -40,10 +44,12 @@ export default function PosPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p) =>
-      p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.barcode ?? '').includes(q));
-  }, [products, search]);
+    return products.filter((p) => {
+      if (cat && p.categoryId !== cat) return false;
+      if (!q) return true;
+      return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.barcode ?? '').includes(q);
+    });
+  }, [products, search, cat]);
 
   const addProduct = (p: Product) =>
     cart.addItem({ productId: p.id, sku: p.sku, name: p.name, unitPrice: Number(p.salePrice), taxRate: Number(p.taxRate) });
@@ -85,6 +91,14 @@ export default function PosPage() {
           <input className="input" placeholder="Search by name / SKU / barcode" value={search} onChange={(e) => setSearch(e.target.value)} />
           <button className="btn-ghost whitespace-nowrap" onClick={() => setScanOpen(true)}>📷 Scan</button>
         </div>
+        {categories.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <button className={`rounded-full px-3 py-1 text-sm ${!cat ? 'bg-brand text-white' : 'bg-white ring-1 ring-slate-200'}`} onClick={() => setCat('')}>All</button>
+            {categories.map((c) => (
+              <button key={c.id} className={`rounded-full px-3 py-1 text-sm ${cat === c.id ? 'bg-brand text-white' : 'bg-white ring-1 ring-slate-200'}`} onClick={() => setCat(c.id)}>{c.name}</button>
+            ))}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           {filtered.map((p) => (
             <div key={p.id} className="card flex flex-col p-3">

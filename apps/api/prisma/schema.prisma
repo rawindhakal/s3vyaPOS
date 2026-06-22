@@ -93,6 +93,14 @@ enum PartyPaymentType {
   CUSTOMER_RECEIPT
 }
 
+enum ReservationStatus {
+  BOOKED
+  SEATED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
 // ── Tenancy & auth ────────────────────────────────────────────────────
 model Shop {
   id           String       @id @default(uuid())
@@ -123,6 +131,7 @@ model Shop {
   orders           Order[]
   purchases        Purchase[]
   partyPayments    PartyPayment[]
+  reservations     Reservation[]
 }
 
 model User {
@@ -133,11 +142,13 @@ model User {
   fullName     String
   role         Role     @default(CASHIER)
   active       Boolean  @default(true)
+  phone        String?
   refreshHash  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shop  Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sales Sale[]
 
   @@unique([shopId, email])
   @@index([shopId])
@@ -287,6 +298,7 @@ model Sale {
   shopId     String
   invoiceNo  String
   customerId String?
+  userId     String?
   subtotal       Decimal    @db.Decimal(18, 2)
   discount       Decimal    @default(0) @db.Decimal(18, 2)
   serviceCharge  Decimal    @default(0) @db.Decimal(18, 2)
@@ -303,6 +315,7 @@ model Sale {
 
   shop     Shop       @relation(fields: [shopId], references: [id], onDelete: Cascade)
   customer Customer?  @relation(fields: [customerId], references: [id])
+  user     User?      @relation(fields: [userId], references: [id])
   items    SaleItem[]
   payments Payment[]
 
@@ -355,11 +368,30 @@ model RestaurantTable {
   seats    Int         @default(4)
   status   TableStatus @default(FREE)
 
-  shop   Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  orders Order[]
+  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  orders       Order[]
+  reservations Reservation[]
 
   @@unique([shopId, name])
   @@index([shopId])
+}
+
+model Reservation {
+  id           String            @id @default(uuid())
+  shopId       String
+  tableId      String?
+  customerName String
+  phone        String?
+  partySize    Int               @default(2)
+  reservedAt   DateTime
+  status       ReservationStatus @default(BOOKED)
+  note         String?
+  createdAt    DateTime          @default(now())
+
+  shop  Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  table RestaurantTable? @relation(fields: [tableId], references: [id])
+
+  @@index([shopId, reservedAt])
 }
 
 model Order {

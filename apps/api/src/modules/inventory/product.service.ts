@@ -6,6 +6,21 @@ import { CreateProductDto, UpdateProductDto } from './dto';
 export class ProductService {
   constructor(private prisma: PrismaService) {}
 
+  // ── Categories ──
+  listCategories(shopId: string) {
+    return this.prisma.category.findMany({ where: { shopId }, orderBy: { name: 'asc' } });
+  }
+
+  createCategory(shopId: string, name: string) {
+    return this.prisma.category.create({ data: { shopId, name } });
+  }
+
+  async updateCategory(shopId: string, id: string, name: string) {
+    const c = await this.prisma.category.findFirst({ where: { id, shopId } });
+    if (!c) throw new NotFoundException('Category not found');
+    return this.prisma.category.update({ where: { id }, data: { name } });
+  }
+
   async list(shopId: string, search?: string) {
     return this.prisma.product.findMany({
       where: {

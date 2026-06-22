@@ -31,7 +31,7 @@ export class SalesService {
     private payments: PaymentsService,
   ) {}
 
-  async createSale(shopId: string, dto: CreateSaleDto) {
+  async createSale(shopId: string, dto: CreateSaleDto, userId?: string) {
     return this.prisma.$transaction(async (tx) => {
       // Ensure the shop has all default accounts (covers shops seeded before M5).
       await tx.account.createMany({
@@ -124,6 +124,7 @@ export class SalesService {
           shopId,
           invoiceNo,
           customerId: dto.customerId,
+          userId,
           subtotal,
           discount: totalDiscount,
           serviceCharge,

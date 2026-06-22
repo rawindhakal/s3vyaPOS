@@ -96,6 +96,21 @@ export class AccountingController {
     return this.reports.getTaxSummary(shopId, from, to);
   }
 
+  @Get('reports/top-items')
+  topItems(@CurrentUser('shopId') shopId: string, @Query('from') from?: string, @Query('to') to?: string) {
+    return this.reports.getTopItems(shopId, from, to);
+  }
+
+  @Get('reports/sales-by-staff')
+  salesByStaff(@CurrentUser('shopId') shopId: string, @Query('from') from?: string, @Query('to') to?: string) {
+    return this.reports.getSalesByStaff(shopId, from, to);
+  }
+
+  @Get('reports/sales-by-category')
+  salesByCategory(@CurrentUser('shopId') shopId: string, @Query('from') from?: string, @Query('to') to?: string) {
+    return this.reports.getSalesByCategory(shopId, from, to);
+  }
+
   @Get('ledger/:accountId')
   ledger(
     @CurrentUser('shopId') shopId: string,

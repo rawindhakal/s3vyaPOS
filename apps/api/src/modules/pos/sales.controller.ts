@@ -17,8 +17,12 @@ export class SalesController {
   constructor(private sales: SalesService) {}
 
   @Post()
-  create(@CurrentUser('shopId') shopId: string, @Body() dto: CreateSaleDto) {
-    return this.sales.createSale(shopId, dto);
+  create(
+    @CurrentUser('shopId') shopId: string,
+    @CurrentUser('userId') userId: string,
+    @Body() dto: CreateSaleDto,
+  ) {
+    return this.sales.createSale(shopId, dto, userId);
   }
 
   @Get()

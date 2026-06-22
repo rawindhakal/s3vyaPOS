@@ -8,13 +8,16 @@ const NAV = [
   { href: '/', label: 'Dashboard', icon: '🏠' },
   { href: '/pos', label: 'POS Terminal', icon: '🧾' },
   { href: '/products', label: 'Products', icon: '📦' },
-  { href: '/sales', label: 'Sales', icon: '💰', soon: true },
+  { href: '/sales', label: 'Sales', icon: '💰' },
   { href: '/purchases', label: 'Purchases', icon: '🛒' },
   { href: '/parties', label: 'Vendors & Customers', icon: '👥' },
+  { href: '/payments', label: 'Payments', icon: '💳' },
   { href: '/accounting/journal', label: 'Accounting', icon: '📒' },
-  { href: '/reports', label: 'Reports', icon: '📊', soon: true },
+  { href: '/reports', label: 'Reports', icon: '📊' },
+  { href: '/staff', label: 'Staff', icon: '🧑‍💼' },
   { href: '/tables', label: 'Tables', icon: '🍽️', restaurant: true },
   { href: '/kot', label: 'Kitchen (KOT)', icon: '👨‍🍳', restaurant: true },
+  { href: '/reservations', label: 'Reservations', icon: '📅', restaurant: true },
   { href: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
@@ -41,16 +44,15 @@ export function Sidebar() {
           return (
             <Link
               key={n.href}
-              href={n.soon ? '#' : n.href}
+              href={n.href}
               className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
                 active ? 'bg-brand text-white' : 'hover:bg-slate-800'
-              } ${n.soon ? 'cursor-not-allowed opacity-50' : ''}`}
+              }`}
             >
               <span>
                 <span className="mr-2">{n.icon}</span>
                 {n.label}
               </span>
-              {n.soon && <span className="text-[10px] uppercase">soon</span>}
             </Link>
           );
         })}
