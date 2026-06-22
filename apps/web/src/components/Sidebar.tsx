@@ -11,7 +11,7 @@ const NAV = [
   { href: '/sales', label: 'Sales', icon: '💰', soon: true },
   { href: '/purchases', label: 'Purchases', icon: '🛒' },
   { href: '/parties', label: 'Vendors & Customers', icon: '👥' },
-  { href: '/accounting', label: 'Accounting', icon: '📒', soon: true },
+  { href: '/accounting/journal', label: 'Accounting', icon: '📒' },
   { href: '/reports', label: 'Reports', icon: '📊', soon: true },
   { href: '/tables', label: 'Tables', icon: '🍽️', soon: true, restaurant: true },
 ];
@@ -25,7 +25,7 @@ export function Sidebar() {
     user?.businessType === 'RESTAURANT' || user?.businessType === 'BOTH';
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col bg-slate-900 text-slate-100">
+    <aside className="no-print flex h-full w-60 shrink-0 flex-col bg-slate-900 text-slate-100">
       <div className="px-5 py-4 text-xl font-bold">
         s3vya<span className="text-brand-light">POS</span>
       </div>
@@ -34,7 +34,8 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto px-2">
         {NAV.filter((n) => !n.restaurant || showRestaurant).map((n) => {
-          const active = pathname === n.href;
+          const base = '/' + (n.href.split('/')[1] ?? '');
+          const active = n.href === '/' ? pathname === '/' : pathname.startsWith(base);
           return (
             <Link
               key={n.href}

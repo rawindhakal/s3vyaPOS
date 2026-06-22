@@ -30,3 +30,15 @@ body {
 .card {
   @apply rounded-xl bg-white shadow-sm ring-1 ring-slate-200;
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  main {
+    overflow: visible !important;
+  }
+  body {
+    background: white;
+  }
+}
