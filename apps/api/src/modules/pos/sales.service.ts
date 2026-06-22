@@ -51,29 +51,59 @@ export class SalesService {
 
       const shop = await tx.shop.findUniqueOrThrow({ where: { id: shopId } });
 
-      // 1. Resolve products, compute per-line figures.
-      const lines = await Promise.all(
+      // 1. Resolve products.
+      const resolved = await Promise.all(
         dto.items.map(async (item) => {
           const product = item.productId
             ? await tx.product.findFirst({ where: { id: item.productId, shopId } })
             : item.sku
               ? await tx.product.findFirst({ where: { shopId, sku: item.sku } })
               : null;
-          if (!product) {
-            throw new BadRequestException(`Product not found: ${item.productId ?? item.sku}`);
+          if (!product) throw new BadRequestException(`Product not found: ${item.productId ?? item.sku}`);
+          return { product, item };
+        }),
+      );
+
+      // Load recipes (bill of materials) for these products.
+      const productIds = [...new Set(resolved.map((r) => r.product.id))];
+      const recipeRows = await tx.recipeComponent.findMany({
+        where: { shopId, productId: { in: productIds } },
+        include: { component: true },
+      });
+      const recipeBy = new Map<string, typeof recipeRows>();
+      for (const r of recipeRows) {
+        const arr = recipeBy.get(r.productId) ?? [];
+        arr.push(r);
+        recipeBy.set(r.productId, arr);
+      }
+
+      // Per-line figures. Recipe items cost from ingredients & consume ingredient stock.
+      const lines = resolved.map(({ product, item }) => {
+        const comps = recipeBy.get(product.id);
+        const unitPrice = round2(item.unitPrice ?? Number(product.salePrice));
+        const gross = round2(unitPrice * item.quantity);
+        const lineDiscount = Math.min(round2(item.discount ?? 0), gross);
+        const lineNet = round2(gross - lineDiscount);
+        const lineTax = round2((lineNet * Number(product.taxRate)) / 100);
+
+        let unitCost: number;
+        let recipe: typeof recipeRows | null = null;
+        if (comps && comps.length > 0) {
+          unitCost = round2(comps.reduce((s, c) => s + Number(c.component.purchasePrice) * Number(c.quantity), 0));
+          recipe = comps;
+          for (const c of comps) {
+            if (Number(c.component.stock) < Number(c.quantity) * item.quantity) {
+              throw new BadRequestException(`Insufficient ${c.component.name} for ${product.name}`);
+            }
           }
+        } else {
+          unitCost = Number(product.purchasePrice);
           if (Number(product.stock) < item.quantity) {
             throw new BadRequestException(`Insufficient stock for ${product.name}`);
           }
-          const unitPrice = round2(item.unitPrice ?? Number(product.salePrice));
-          const gross = round2(unitPrice * item.quantity);
-          const lineDiscount = Math.min(round2(item.discount ?? 0), gross);
-          const lineNet = round2(gross - lineDiscount);
-          const lineTax = round2((lineNet * Number(product.taxRate)) / 100);
-          const unitCost = Number(product.purchasePrice);
-          return { product, quantity: item.quantity, unitPrice, lineDiscount, lineNet, lineTax, unitCost };
-        }),
-      );
+        }
+        return { product, quantity: item.quantity, unitPrice, lineDiscount, lineNet, lineTax, unitCost, recipe };
+      });
 
       // 2. Totals.
       const subtotal = round2(lines.reduce((s, l) => s + l.lineNet, 0));
@@ -181,10 +211,20 @@ export class SalesService {
       });
 
       for (const l of lines) {
-        await tx.product.update({
-          where: { id: l.product.id },
-          data: { stock: { decrement: l.quantity } },
-        });
+        if (l.recipe) {
+          for (const c of l.recipe) {
+            const consume = round2(Number(c.quantity) * l.quantity);
+            await tx.product.update({ where: { id: c.componentId }, data: { stock: { decrement: consume } } });
+            await tx.stockMovement.create({
+              data: { shopId, productId: c.componentId, type: 'RECIPE_CONSUME', quantity: -consume, reference: invoiceNo },
+            });
+          }
+        } else {
+          await tx.product.update({ where: { id: l.product.id }, data: { stock: { decrement: l.quantity } } });
+          await tx.stockMovement.create({
+            data: { shopId, productId: l.product.id, type: 'SALE', quantity: -l.quantity, reference: invoiceNo },
+          });
+        }
       }
 
       // 5. Payment records (+ QR charge payloads).

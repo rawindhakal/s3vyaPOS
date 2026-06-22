@@ -88,6 +88,7 @@ export class ProductService {
         salePrice: dto.salePrice ?? 0,
         stock: dto.stock ?? 0,
         taxRate: dto.taxRate ?? 0,
+        reorderLevel: dto.reorderLevel ?? 0,
       },
     });
   }
@@ -106,6 +107,7 @@ export class ProductService {
         salePrice: dto.salePrice,
         stock: dto.stock,
         taxRate: dto.taxRate,
+        reorderLevel: dto.reorderLevel,
         isActive: dto.isActive,
       },
     });

@@ -8,6 +8,7 @@ const NAV = [
   { href: '/', label: 'Dashboard', icon: '🏠' },
   { href: '/pos', label: 'POS Terminal', icon: '🧾' },
   { href: '/products', label: 'Products', icon: '📦' },
+  { href: '/inventory', label: 'Inventory', icon: '📊' },
   { href: '/sales', label: 'Sales', icon: '💰' },
   { href: '/purchases', label: 'Purchases', icon: '🛒' },
   { href: '/parties', label: 'Vendors & Customers', icon: '👥' },

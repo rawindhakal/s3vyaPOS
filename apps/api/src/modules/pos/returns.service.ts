@@ -61,6 +61,9 @@ export class ReturnsService {
       // Restock
       for (const l of lines) {
         await tx.product.update({ where: { id: l.item.productId }, data: { stock: { increment: l.quantity } } });
+        await tx.stockMovement.create({
+          data: { shopId, productId: l.item.productId, type: 'RETURN', quantity: l.quantity, reference: sale.invoiceNo },
+        });
       }
 
       const ret = await tx.saleReturn.create({

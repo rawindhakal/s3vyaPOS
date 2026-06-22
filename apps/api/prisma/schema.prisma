@@ -110,6 +110,15 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+enum StockMovementType {
+  PURCHASE
+  SALE
+  RETURN
+  ADJUSTMENT
+  WASTE
+  RECIPE_CONSUME
+}
+
 // ── Tenancy & auth ────────────────────────────────────────────────────
 model Shop {
   id           String       @id @default(uuid())
@@ -252,19 +261,55 @@ model Product {
   stock         Decimal  @default(0) @db.Decimal(18, 3)
   taxRate       Decimal  @default(0) @db.Decimal(5, 2)
   unit          String   @default("pcs")
+  reorderLevel  Decimal  @default(0) @db.Decimal(18, 3)
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  shop          Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  category      Category?      @relation(fields: [categoryId], references: [id])
+  shop          Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  category      Category?         @relation(fields: [categoryId], references: [id])
   saleItems     SaleItem[]
   orderItems    OrderItem[]
   purchaseItems PurchaseItem[]
+  recipe        RecipeComponent[] @relation("MenuItem")
+  ingredientOf  RecipeComponent[] @relation("Ingredient")
+  movements     StockMovement[]
 
   @@unique([shopId, sku])
   @@unique([shopId, barcode])
   @@index([shopId, name])
+}
+
+// Recipe / bill-of-materials: a menu product made of ingredient products.
+model RecipeComponent {
+  id          String  @id @default(uuid())
+  shopId      String
+  productId   String  // the menu item
+  componentId String  // the ingredient product
+  quantity    Decimal @db.Decimal(18, 3)
+
+  product   Product @relation("MenuItem", fields: [productId], references: [id], onDelete: Cascade)
+  component Product @relation("Ingredient", fields: [componentId], references: [id])
+
+  @@unique([productId, componentId])
+  @@index([shopId])
+}
+
+// Append-only stock ledger: + quantity = in, - quantity = out.
+model StockMovement {
+  id        String            @id @default(uuid())
+  shopId    String
+  productId String
+  type      StockMovementType
+  quantity  Decimal           @db.Decimal(18, 3)
+  reason    String?
+  reference String?
+  createdAt DateTime          @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+  @@index([productId])
 }
 
 // ── Parties ───────────────────────────────────────────────────────────

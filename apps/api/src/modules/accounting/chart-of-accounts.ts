@@ -17,6 +17,7 @@ export const ACCOUNT_CODES = {
   SERVICE_CHARGE: '4100',
   COGS: '5000',
   DISCOUNT_ALLOWED: '5100',
+  WASTAGE: '5200',
   OPERATING_EXPENSE: '6000',
   ROUNDING: '6100',
 } as const;
@@ -46,6 +47,7 @@ export const DEFAULT_CHART_OF_ACCOUNTS: SeedAccount[] = [
   { code: ACCOUNT_CODES.SERVICE_CHARGE, name: 'Service Charge', type: 'REVENUE', isSystem: true },
   { code: ACCOUNT_CODES.COGS, name: 'Cost of Goods Sold', type: 'EXPENSE', isSystem: true },
   { code: ACCOUNT_CODES.DISCOUNT_ALLOWED, name: 'Discount Allowed', type: 'EXPENSE', isSystem: true },
+  { code: ACCOUNT_CODES.WASTAGE, name: 'Wastage / Spoilage', type: 'EXPENSE', isSystem: true },
   { code: ACCOUNT_CODES.OPERATING_EXPENSE, name: 'Operating Expense', type: 'EXPENSE', isSystem: true },
   { code: ACCOUNT_CODES.ROUNDING, name: 'Rounding Off', type: 'EXPENSE', isSystem: true },
 ];

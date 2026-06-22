@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-store';
 import { money } from '@/lib/format';
 import { Modal } from '@/components/Modal';
 import { BarcodeGenerator } from '@/components/BarcodeGenerator';
+import { RecipeModal } from '@/components/RecipeModal';
 
 interface Product {
   id: string;
@@ -19,6 +20,7 @@ interface Product {
   salePrice: string;
   stock: string;
   taxRate: string;
+  reorderLevel: string;
 }
 interface Category { id: string; name: string }
 
@@ -30,6 +32,7 @@ const empty = {
   salePrice: 0,
   stock: 0,
   taxRate: 13,
+  reorderLevel: 0,
 };
 
 export default function ProductsPage() {
@@ -41,6 +44,7 @@ export default function ProductsPage() {
   const [barcodeFor, setBarcodeFor] = useState<Product | null>(null);
   const [catOpen, setCatOpen] = useState(false);
   const [newCat, setNewCat] = useState('');
+  const [recipeFor, setRecipeFor] = useState<Product | null>(null);
 
   const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ['products'],
@@ -67,6 +71,7 @@ export default function ProductsPage() {
         salePrice: Number(form.salePrice),
         stock: Number(form.stock),
         taxRate: Number(form.taxRate),
+        reorderLevel: Number(form.reorderLevel),
       };
       return editing
         ? api.patch(`/products/${editing}`, payload)
@@ -97,6 +102,7 @@ export default function ProductsPage() {
       salePrice: Number(p.salePrice),
       stock: Number(p.stock),
       taxRate: Number(p.taxRate),
+      reorderLevel: Number(p.reorderLevel),
     });
     setEditing(p.id);
     setFormOpen(true);
@@ -141,6 +147,7 @@ export default function ProductsPage() {
                 <td className="p-3 text-right">{Number(p.stock)}</td>
                 <td className="p-3 text-right whitespace-nowrap">
                   <button className="mr-3 text-brand hover:underline" onClick={() => openEdit(p)}>Edit</button>
+                  <button className="mr-3 text-slate-600 hover:underline" onClick={() => setRecipeFor(p)}>Recipe</button>
                   <button className="text-slate-600 hover:underline" onClick={() => setBarcodeFor(p)}>Barcode</button>
                 </td>
               </tr>
@@ -173,6 +180,9 @@ export default function ProductsPage() {
             <label className="text-sm">Tax %
               <input className="input" type="number" value={form.taxRate} onChange={set('taxRate')} />
             </label>
+            <label className="text-sm">Reorder level
+              <input className="input" type="number" value={form.reorderLevel} onChange={set('reorderLevel')} />
+            </label>
           </div>
           <button className="btn-primary w-full" disabled={save.isPending} onClick={() => save.mutate()}>
             {save.isPending ? 'Saving…' : 'Save'}
@@ -183,6 +193,8 @@ export default function ProductsPage() {
       <Modal open={!!barcodeFor} title={barcodeFor?.name} onClose={() => setBarcodeFor(null)}>
         {barcodeFor && <BarcodeGenerator value={barcodeFor.barcode || barcodeFor.sku} label={barcodeFor.name} />}
       </Modal>
+
+      <RecipeModal product={recipeFor} products={products} onClose={() => setRecipeFor(null)} />
 
       <Modal open={catOpen} title="Menu categories" onClose={() => setCatOpen(false)}>
         <div className="space-y-3">

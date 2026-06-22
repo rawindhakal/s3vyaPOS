@@ -70,6 +70,9 @@ export class PurchasingService {
             purchasePrice: l.unitCost,
           },
         });
+        await tx.stockMovement.create({
+          data: { shopId, productId: l.product.id, type: 'PURCHASE', quantity: l.quantity, reference: billNo },
+        });
       }
 
       // Credit side depends on payment method.

@@ -20,6 +20,7 @@ export class CreateProductDto {
   @IsOptional() @IsNumber() @Min(0) salePrice?: number;
   @IsOptional() @IsNumber() @Min(0) stock?: number;
   @IsOptional() @IsNumber() @Min(0) taxRate?: number;
+  @IsOptional() @IsNumber() @Min(0) reorderLevel?: number;
 }
 
 export class UpdateProductDto extends CreateProductDto {
