@@ -3,8 +3,15 @@
 export const ROLES = ['ADMIN', 'MANAGER', 'CASHIER', 'ACCOUNTANT'] as const;
 export type Role = (typeof ROLES)[number];
 
-export const BUSINESS_TYPES = ['RETAIL', 'RESTAURANT', 'BOTH'] as const;
+export const BUSINESS_TYPES = ['RESTAURANT'] as const;
 export type BusinessType = (typeof BUSINESS_TYPES)[number];
+
+export const STATIONS = ['KITCHEN', 'BAR'] as const;
+export type Station = (typeof STATIONS)[number];
+
+// Printer stations a terminal can map to a physical printer.
+export const PRINTER_STATIONS = ['KITCHEN', 'BAR', 'BILLING'] as const;
+export type PrinterStation = (typeof PRINTER_STATIONS)[number];
 
 export const ACCOUNT_TYPES = [
   'ASSET',

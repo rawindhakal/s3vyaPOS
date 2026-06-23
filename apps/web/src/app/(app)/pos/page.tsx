@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
 import { useCart } from '@/store/cart';
 import { money } from '@/lib/format';
+import { printToStation, billHtml } from '@/lib/print';
 import { CameraScanner } from '@/components/CameraScanner';
 import { BarcodeGenerator } from '@/components/BarcodeGenerator';
 import { Modal } from '@/components/Modal';
@@ -193,7 +194,7 @@ export default function PosPage() {
               {receipt.payments?.map((p: any) => <div key={p.id}>{p.method} {money(Number(p.amount), currency)}{p.qrPayload ? ` · ${p.qrPayload}` : ''}</div>)}
               {Number(receipt.loyaltyEarned) > 0 && <div>Loyalty earned: {Number(receipt.loyaltyEarned)} pts</div>}
             </div>
-            <button className="btn-primary w-full" onClick={() => window.print()}>Print receipt</button>
+            <button className="btn-primary w-full" onClick={() => printToStation('BILLING', billHtml({ shopName: shop?.name ?? '', currency, sale: receipt }))}>Print receipt</button>
           </div>
         )}
       </Modal>

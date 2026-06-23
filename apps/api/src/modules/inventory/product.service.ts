@@ -89,6 +89,7 @@ export class ProductService {
         stock: dto.stock ?? 0,
         taxRate: dto.taxRate ?? 0,
         reorderLevel: dto.reorderLevel ?? 0,
+        station: dto.station ?? 'KITCHEN',
       },
     });
   }
@@ -108,6 +109,7 @@ export class ProductService {
         stock: dto.stock,
         taxRate: dto.taxRate,
         reorderLevel: dto.reorderLevel,
+        station: dto.station,
         isActive: dto.isActive,
       },
     });

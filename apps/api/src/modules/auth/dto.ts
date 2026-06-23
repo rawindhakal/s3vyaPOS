@@ -12,8 +12,9 @@ export class SignupDto {
   @MinLength(2)
   shopName!: string;
 
+  @IsOptional()
   @IsEnum(BusinessType)
-  businessType!: BusinessType;
+  businessType?: BusinessType;
 
   @IsEmail()
   email!: string;

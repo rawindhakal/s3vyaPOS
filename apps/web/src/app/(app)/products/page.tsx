@@ -21,6 +21,7 @@ interface Product {
   stock: string;
   taxRate: string;
   reorderLevel: string;
+  station: string;
 }
 interface Category { id: string; name: string }
 
@@ -33,6 +34,7 @@ const empty = {
   stock: 0,
   taxRate: 13,
   reorderLevel: 0,
+  station: 'KITCHEN',
 };
 
 export default function ProductsPage() {
@@ -72,6 +74,7 @@ export default function ProductsPage() {
         stock: Number(form.stock),
         taxRate: Number(form.taxRate),
         reorderLevel: Number(form.reorderLevel),
+        station: form.station,
       };
       return editing
         ? api.patch(`/products/${editing}`, payload)
@@ -103,6 +106,7 @@ export default function ProductsPage() {
       stock: Number(p.stock),
       taxRate: Number(p.taxRate),
       reorderLevel: Number(p.reorderLevel),
+      station: p.station ?? 'KITCHEN',
     });
     setEditing(p.id);
     setFormOpen(true);
@@ -167,6 +171,12 @@ export default function ProductsPage() {
             <option value="">No category</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+          <label className="text-sm">Prep station (KOT routing)
+            <select className="input" value={form.station} onChange={set('station')}>
+              <option value="KITCHEN">Kitchen</option>
+              <option value="BAR">Bar</option>
+            </select>
+          </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="text-sm">Cost
               <input className="input" type="number" value={form.purchasePrice} onChange={set('purchasePrice')} />

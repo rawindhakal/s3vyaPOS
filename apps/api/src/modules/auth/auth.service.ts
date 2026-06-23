@@ -28,7 +28,7 @@ export class AuthService {
       const shop = await tx.shop.create({
         data: {
           name: dto.shopName,
-          businessType: dto.businessType,
+          businessType: 'RESTAURANT',
           currency: dto.currency ?? 'NPR',
           accounts: {
             create: DEFAULT_CHART_OF_ACCOUNTS.map((a) => ({

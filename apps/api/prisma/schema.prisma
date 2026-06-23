@@ -18,9 +18,12 @@ enum Role {
 }
 
 enum BusinessType {
-  RETAIL
   RESTAURANT
-  BOTH
+}
+
+enum StationType {
+  KITCHEN
+  BAR
 }
 
 enum Plan {
@@ -136,7 +139,7 @@ enum NotificationStatus {
 model Shop {
   id           String       @id @default(uuid())
   name         String
-  businessType BusinessType @default(RETAIL)
+  businessType BusinessType @default(RESTAURANT)
   currency     String       @default("NPR")
   plan         Plan         @default(FREE)
   address      String?
@@ -308,6 +311,7 @@ model Product {
   taxRate       Decimal  @default(0) @db.Decimal(5, 2)
   unit          String   @default("pcs")
   reorderLevel  Decimal  @default(0) @db.Decimal(18, 3)
+  station       StationType @default(KITCHEN)
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

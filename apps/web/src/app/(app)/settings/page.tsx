@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { BUSINESS_TYPES, type BusinessType } from '@s3vya/types';
 import { api } from '@/lib/api';
 
 export default function SettingsPage() {
@@ -17,7 +16,6 @@ export default function SettingsPage() {
     if (shop && !form) {
       setForm({
         name: shop.name,
-        businessType: shop.businessType,
         address: shop.address ?? '',
         phone: shop.phone ?? '',
         taxRate: Number(shop.taxRate),
@@ -46,13 +44,8 @@ export default function SettingsPage() {
     <div className="p-6">
       <h1 className="mb-4 text-2xl font-bold">Settings</h1>
       <div className="card max-w-xl space-y-4 p-5">
-        <label className="block text-sm">Shop name
+        <label className="block text-sm">Restaurant name
           <input className="input" value={form.name} onChange={set('name')} />
-        </label>
-        <label className="block text-sm">Business type
-          <select className="input" value={form.businessType} onChange={set('businessType')}>
-            {BUSINESS_TYPES.map((t: BusinessType) => <option key={t} value={t}>{t}</option>)}
-          </select>
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm">Phone

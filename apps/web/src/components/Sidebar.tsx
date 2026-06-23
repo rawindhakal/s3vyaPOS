@@ -1,17 +1,25 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-store';
+import { isCashierMode } from '@/lib/desktop';
 
+// `cashier: true` items are the only ones shown in the desktop cashier terminal.
 const NAV = [
+  { href: '/pos', label: 'Billing (POS)', icon: '🧾', cashier: true },
+  { href: '/tables', label: 'Tables', icon: '🍽️', cashier: true },
+  { href: '/kot', label: 'Kitchen (KOT)', icon: '👨‍🍳', cashier: true },
+  { href: '/reservations', label: 'Reservations', icon: '📅', cashier: true },
+  { href: '/customers', label: 'Customers', icon: '👤', cashier: true },
+  { href: '/products', label: 'Products', icon: '📦', cashier: true },
+  { href: '/printers', label: 'Printers', icon: '🖨️', cashier: true },
   { href: '/', label: 'Dashboard', icon: '🏠' },
-  { href: '/pos', label: 'POS Terminal', icon: '🧾' },
-  { href: '/products', label: 'Products', icon: '📦' },
-  { href: '/inventory', label: 'Inventory', icon: '📊' },
+  { href: '/inventory', label: 'Inventory', icon: '📦' },
   { href: '/sales', label: 'Sales', icon: '💰' },
   { href: '/purchases', label: 'Purchases', icon: '🛒' },
-  { href: '/parties', label: 'Vendors & Customers', icon: '👥' },
+  { href: '/parties', label: 'Vendors & Suppliers', icon: '👥' },
   { href: '/payments', label: 'Payments', icon: '💳' },
   { href: '/gift-cards', label: 'Gift Cards', icon: '🎁' },
   { href: '/accounting/journal', label: 'Accounting', icon: '📒' },
@@ -19,9 +27,6 @@ const NAV = [
   { href: '/staff', label: 'Staff', icon: '🧑‍💼' },
   { href: '/notifications', label: 'Notifications', icon: '🔔' },
   { href: '/feedback', label: 'Feedback', icon: '⭐' },
-  { href: '/tables', label: 'Tables', icon: '🍽️', restaurant: true },
-  { href: '/kot', label: 'Kitchen (KOT)', icon: '👨‍🍳', restaurant: true },
-  { href: '/reservations', label: 'Reservations', icon: '📅', restaurant: true },
   { href: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
@@ -29,20 +34,20 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const [cashier, setCashier] = useState(false);
+  useEffect(() => setCashier(isCashierMode()), []);
 
-  const showRestaurant =
-    user?.businessType === 'RESTAURANT' || user?.businessType === 'BOTH';
+  const items = NAV.filter((n) => !cashier || n.cashier);
 
   return (
     <aside className="no-print flex h-full w-60 shrink-0 flex-col bg-slate-900 text-slate-100">
       <div className="px-5 py-4 text-xl font-bold">
         s3vya<span className="text-brand-light">POS</span>
+        {cashier && <span className="ml-2 rounded bg-brand px-1.5 py-0.5 text-[10px] uppercase">Cashier</span>}
       </div>
-      <div className="px-5 pb-3 text-xs text-slate-400">
-        {user?.shopName} · {user?.businessType}
-      </div>
+      <div className="px-5 pb-3 text-xs text-slate-400">{user?.shopName}</div>
       <nav className="flex-1 space-y-1 overflow-y-auto px-2">
-        {NAV.filter((n) => !n.restaurant || showRestaurant).map((n) => {
+        {items.map((n) => {
           const base = '/' + (n.href.split('/')[1] ?? '');
           const active = n.href === '/' ? pathname === '/' : pathname.startsWith(base);
           return (

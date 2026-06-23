@@ -1,11 +1,13 @@
 import {
   IsBoolean,
+  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
   Min,
   MinLength,
 } from 'class-validator';
+import { StationType } from '@prisma/client';
 
 export class CreateProductDto {
   @IsString() @MinLength(1) name!: string;
@@ -21,6 +23,7 @@ export class CreateProductDto {
   @IsOptional() @IsNumber() @Min(0) stock?: number;
   @IsOptional() @IsNumber() @Min(0) taxRate?: number;
   @IsOptional() @IsNumber() @Min(0) reorderLevel?: number;
+  @IsOptional() @IsEnum(StationType) station?: StationType;
 }
 
 export class UpdateProductDto extends CreateProductDto {

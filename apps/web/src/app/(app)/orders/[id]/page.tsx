@@ -7,9 +7,10 @@ import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
 import { money } from '@/lib/format';
+import { printToStation, kotHtml, billHtml } from '@/lib/print';
 import { CheckoutModal, type CheckoutBilling } from '@/components/CheckoutModal';
 
-interface Product { id: string; sku: string; name: string; salePrice: string; taxRate: string }
+interface Product { id: string; sku: string; name: string; salePrice: string; taxRate: string; station: string }
 interface Line { productId: string; name: string; unitPrice: number; quantity: number }
 
 export default function OrderPage() {
@@ -38,6 +39,11 @@ export default function OrderPage() {
   const taxRateOf = useMemo(() => {
     const m = new Map(products.map((p) => [p.id, Number(p.taxRate)]));
     return (pid: string) => m.get(pid) ?? 0;
+  }, [products]);
+
+  const stationOf = useMemo(() => {
+    const m = new Map(products.map((p) => [p.id, p.station]));
+    return (pid: string) => m.get(pid) ?? 'KITCHEN';
   }, [products]);
 
   useEffect(() => {
@@ -75,17 +81,19 @@ export default function OrderPage() {
     finally { setSaving(false); }
   };
 
-  const printKot = () => {
-    const w = window.open('', '_blank', 'width=320,height=500');
-    if (!w) return;
-    const rows = lines.map((l) => `<tr><td>${l.quantity} ×</td><td>${l.name}</td></tr>`).join('');
-    w.document.write(`<html><body style="font-family:monospace;padding:8px">
-      <h3 style="text-align:center">KOT</h3>
-      <div>${order?.table?.name ? 'Table ' + order.table.name : order?.orderType || ''}</div>
-      <div>${new Date().toLocaleString()}</div><hr/>
-      <table style="width:100%">${rows}</table>
-      <script>window.onload=()=>{window.print();window.close();}</script></body></html>`);
-    w.document.close();
+  // Save items, then route a KOT to each station's printer (kitchen / bar).
+  const sendKitchen = async () => {
+    await saveItems();
+    const title = order?.table?.name ? `Table ${order.table.name}` : order?.orderType ?? 'Order';
+    const groups: Record<string, { name: string; quantity: number }[]> = {};
+    for (const l of lines) {
+      const st = stationOf(l.productId);
+      (groups[st] ??= []).push({ name: l.name, quantity: l.quantity });
+    }
+    for (const st of ['KITCHEN', 'BAR'] as const) {
+      if (groups[st]?.length) await printToStation(st, kotHtml({ title, station: st, items: groups[st] }));
+    }
+    toast.success('Sent to kitchen');
   };
 
   const settle = async (billing: CheckoutBilling) => {
@@ -99,6 +107,7 @@ export default function OrderPage() {
         redeemPoints: billing.redeemPoints,
         tip: billing.tip,
       });
+      try { await printToStation('BILLING', billHtml({ shopName: shop?.name ?? '', currency, sale: data })); } catch { /* ignore */ }
       toast.success(`Settled · ${data.invoiceNo}`);
       router.push('/tables');
     } catch (e: any) {
@@ -156,7 +165,7 @@ export default function OrderPage() {
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button className="btn-ghost" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save'}</button>
-          <button className="btn-ghost" onClick={printKot}>🖨 KOT</button>
+          <button className="btn-ghost" onClick={sendKitchen}>🖨 Send to kitchen</button>
           <button className="btn-ghost text-red-600" onClick={cancel}>Cancel order</button>
           <button className="btn-primary" disabled={lines.length === 0} onClick={() => setSettleOpen(true)}>Settle</button>
         </div>
