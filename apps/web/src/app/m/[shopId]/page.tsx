@@ -5,8 +5,10 @@ import { useParams, useSearchParams } from 'next/navigation';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5300/api';
 
-interface Product { id: string; name: string; description?: string | null; salePrice: string; categoryId: string | null }
+interface Variation { id: string; name: string; salePrice: string }
+interface Product { id: string; name: string; description?: string | null; salePrice: string; categoryId: string | null; hasVariations?: boolean; variations?: Variation[] }
 interface Category { id: string; name: string }
+interface Entry { key: string; productId: string; variationId?: string; name: string; description?: string | null; price: number; categoryId: string | null }
 
 export default function PublicMenuPage() {
   const { shopId } = useParams<{ shopId: string }>();
@@ -30,15 +32,28 @@ export default function PublicMenuPage() {
 
   const currency = data?.shop?.currency ?? 'NPR';
   const fmt = (n: number) => `${currency} ${n.toFixed(2)}`;
-  const products = useMemo(
-    () => (data?.products ?? []).filter((p) => !cat || p.categoryId === cat),
-    [data, cat],
-  );
-  const lines = (data?.products ?? []).filter((p) => cart[p.id] > 0);
-  const total = lines.reduce((s, p) => s + Number(p.salePrice) * cart[p.id], 0);
 
-  const setQty = (id: string, q: number) =>
-    setCart((c) => { const n = { ...c }; if (q <= 0) delete n[id]; else n[id] = q; return n; });
+  // Flatten products into menu entries — one per variation (size).
+  const allEntries = useMemo<Entry[]>(() => {
+    const out: Entry[] = [];
+    for (const p of data?.products ?? []) {
+      if (p.hasVariations && p.variations?.length) {
+        for (const v of p.variations) {
+          out.push({ key: v.id, productId: p.id, variationId: v.id, name: `${p.name} (${v.name})`, description: p.description, price: Number(v.salePrice), categoryId: p.categoryId });
+        }
+      } else {
+        out.push({ key: p.id, productId: p.id, name: p.name, description: p.description, price: Number(p.salePrice), categoryId: p.categoryId });
+      }
+    }
+    return out;
+  }, [data]);
+
+  const entries = useMemo(() => allEntries.filter((e) => !cat || e.categoryId === cat), [allEntries, cat]);
+  const lines = allEntries.filter((e) => cart[e.key] > 0);
+  const total = lines.reduce((s, e) => s + e.price * cart[e.key], 0);
+
+  const setQty = (key: string, q: number) =>
+    setCart((c) => { const n = { ...c }; if (q <= 0) delete n[key]; else n[key] = q; return n; });
 
   const place = async () => {
     setBusy(true); setError('');
@@ -52,7 +67,7 @@ export default function PublicMenuPage() {
           orderType: tableId ? 'DINE_IN' : 'TAKEAWAY',
           customerName: name || undefined,
           phone: phone || undefined,
-          items: lines.map((p) => ({ productId: p.id, quantity: cart[p.id] })),
+          items: lines.map((e) => ({ productId: e.productId, variationId: e.variationId, quantity: cart[e.key] })),
         }),
       });
       if (!res.ok) throw new Error((await res.json()).message ?? 'Failed');
@@ -95,27 +110,27 @@ export default function PublicMenuPage() {
       )}
 
       <div className="space-y-2 px-3">
-        {products.map((p) => (
-          <div key={p.id} className="flex items-center justify-between rounded-xl bg-white p-3 shadow-sm">
+        {entries.map((e) => (
+          <div key={e.key} className="flex items-center justify-between rounded-xl bg-white p-3 shadow-sm">
             <div className="min-w-0">
-              <div className="font-medium">{p.name}</div>
-              {p.description && <div className="truncate text-xs text-slate-400">{p.description}</div>}
-              <div className="text-sm font-semibold text-brand">{fmt(Number(p.salePrice))}</div>
+              <div className="font-medium">{e.name}</div>
+              {e.description && <div className="truncate text-xs text-slate-400">{e.description}</div>}
+              <div className="text-sm font-semibold text-brand">{fmt(e.price)}</div>
             </div>
             <div className="flex items-center gap-2">
-              {cart[p.id] ? (
+              {cart[e.key] ? (
                 <>
-                  <button className="h-8 w-8 rounded-full bg-slate-200" onClick={() => setQty(p.id, (cart[p.id] ?? 0) - 1)}>−</button>
-                  <span className="w-5 text-center">{cart[p.id]}</span>
-                  <button className="h-8 w-8 rounded-full bg-brand text-white" onClick={() => setQty(p.id, (cart[p.id] ?? 0) + 1)}>+</button>
+                  <button className="h-8 w-8 rounded-full bg-slate-200" onClick={() => setQty(e.key, (cart[e.key] ?? 0) - 1)}>−</button>
+                  <span className="w-5 text-center">{cart[e.key]}</span>
+                  <button className="h-8 w-8 rounded-full bg-brand text-white" onClick={() => setQty(e.key, (cart[e.key] ?? 0) + 1)}>+</button>
                 </>
               ) : (
-                <button className="rounded-lg bg-brand px-3 py-1.5 text-sm text-white" onClick={() => setQty(p.id, 1)}>Add</button>
+                <button className="rounded-lg bg-brand px-3 py-1.5 text-sm text-white" onClick={() => setQty(e.key, 1)}>Add</button>
               )}
             </div>
           </div>
         ))}
-        {products.length === 0 && <p className="py-8 text-center text-slate-400">No items.</p>}
+        {entries.length === 0 && <p className="py-8 text-center text-slate-400">No items.</p>}
       </div>
 
       {lines.length > 0 && (

@@ -60,7 +60,14 @@ export class SalesService {
               ? await tx.product.findFirst({ where: { shopId, sku: item.sku } })
               : null;
           if (!product) throw new BadRequestException(`Product not found: ${item.productId ?? item.sku}`);
-          return { product, item };
+          let variation = null;
+          if (item.variationId) {
+            variation = await tx.productVariation.findFirst({
+              where: { id: item.variationId, shopId, productId: product.id },
+            });
+            if (!variation) throw new BadRequestException('Variation not found');
+          }
+          return { product, item, variation };
         }),
       );
 
@@ -78,13 +85,17 @@ export class SalesService {
       }
 
       // Per-line figures. Recipe items cost from ingredients & consume ingredient stock.
-      const lines = resolved.map(({ product, item }) => {
+      // VAT is a single shop-level rate (set in admin settings), applied to every line.
+      const vatRate = Number(shop.taxRate);
+      const lines = resolved.map(({ product, item, variation }) => {
         const comps = recipeBy.get(product.id);
-        const unitPrice = round2(item.unitPrice ?? Number(product.salePrice));
+        const basePrice = variation ? Number(variation.salePrice) : Number(product.salePrice);
+        const unitPrice = round2(item.unitPrice ?? basePrice);
+        const displayName = variation ? `${product.name} (${variation.name})` : product.name;
         const gross = round2(unitPrice * item.quantity);
         const lineDiscount = Math.min(round2(item.discount ?? 0), gross);
         const lineNet = round2(gross - lineDiscount);
-        const lineTax = round2((lineNet * Number(product.taxRate)) / 100);
+        const lineTax = round2((lineNet * vatRate) / 100);
 
         let unitCost: number;
         let recipe: typeof recipeRows | null = null;
@@ -97,12 +108,10 @@ export class SalesService {
             }
           }
         } else {
+          // Plain menu items are made-to-order — no product-level stock tracking.
           unitCost = Number(product.purchasePrice);
-          if (Number(product.stock) < item.quantity) {
-            throw new BadRequestException(`Insufficient stock for ${product.name}`);
-          }
         }
-        return { product, quantity: item.quantity, unitPrice, lineDiscount, lineNet, lineTax, unitCost, recipe };
+        return { product, name: displayName, variationId: variation?.id ?? null, quantity: item.quantity, unitPrice, lineDiscount, lineNet, lineTax, unitCost, recipe };
       });
 
       // 2. Totals.
@@ -199,7 +208,8 @@ export class SalesService {
           items: {
             create: lines.map((l) => ({
               productId: l.product.id,
-              name: l.product.name,
+              name: l.name,
+              variationId: l.variationId,
               quantity: l.quantity,
               unitPrice: l.unitPrice,
               discount: l.lineDiscount,
@@ -211,6 +221,7 @@ export class SalesService {
       });
 
       for (const l of lines) {
+        // Only recipe items deplete stock — they consume their ingredients.
         if (l.recipe) {
           for (const c of l.recipe) {
             const consume = round2(Number(c.quantity) * l.quantity);
@@ -219,11 +230,6 @@ export class SalesService {
               data: { shopId, productId: c.componentId, type: 'RECIPE_CONSUME', quantity: -consume, reference: invoiceNo },
             });
           }
-        } else {
-          await tx.product.update({ where: { id: l.product.id }, data: { stock: { decrement: l.quantity } } });
-          await tx.stockMovement.create({
-            data: { shopId, productId: l.product.id, type: 'SALE', quantity: -l.quantity, reference: invoiceNo },
-          });
         }
       }
 

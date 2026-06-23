@@ -312,22 +312,41 @@ model Product {
   unit          String   @default("pcs")
   reorderLevel  Decimal  @default(0) @db.Decimal(18, 3)
   station       StationType @default(KITCHEN)
+  hasVariations Boolean  @default(false)
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  shop          Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  category      Category?         @relation(fields: [categoryId], references: [id])
+  shop          Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  category      Category?          @relation(fields: [categoryId], references: [id])
   saleItems     SaleItem[]
   orderItems    OrderItem[]
   purchaseItems PurchaseItem[]
-  recipe        RecipeComponent[] @relation("MenuItem")
-  ingredientOf  RecipeComponent[] @relation("Ingredient")
+  recipe        RecipeComponent[]  @relation("MenuItem")
+  ingredientOf  RecipeComponent[]  @relation("Ingredient")
   movements     StockMovement[]
+  variations    ProductVariation[]
 
   @@unique([shopId, sku])
   @@unique([shopId, barcode])
   @@index([shopId, name])
+}
+
+// Sellable variants of a product, e.g. a whisky in 30ml / 60ml / 1L pours.
+model ProductVariation {
+  id        String  @id @default(uuid())
+  shopId    String
+  productId String
+  name      String
+  salePrice Decimal @db.Decimal(18, 2)
+  sku       String?
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@index([productId])
 }
 
 // Recipe / bill-of-materials: a menu product made of ingredient products.
@@ -438,12 +457,13 @@ model SaleItem {
   id        String  @id @default(uuid())
   saleId    String
   productId String
-  name      String
-  quantity  Decimal @db.Decimal(18, 3)
-  unitPrice Decimal @db.Decimal(18, 2)
-  discount  Decimal @default(0) @db.Decimal(18, 2)
-  unitCost  Decimal @default(0) @db.Decimal(18, 2)
-  lineTotal Decimal @db.Decimal(18, 2)
+  name        String
+  variationId String?
+  quantity    Decimal @db.Decimal(18, 3)
+  unitPrice   Decimal @db.Decimal(18, 2)
+  discount    Decimal @default(0) @db.Decimal(18, 2)
+  unitCost    Decimal @default(0) @db.Decimal(18, 2)
+  lineTotal   Decimal @db.Decimal(18, 2)
 
   sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
@@ -578,13 +598,14 @@ model Order {
 }
 
 model OrderItem {
-  id        String  @id @default(uuid())
-  orderId   String
-  productId String
-  name      String
-  quantity  Decimal @db.Decimal(18, 3)
-  unitPrice Decimal @db.Decimal(18, 2)
-  note      String?
+  id          String  @id @default(uuid())
+  orderId     String
+  productId   String
+  name        String
+  variationId String?
+  quantity    Decimal @db.Decimal(18, 3)
+  unitPrice   Decimal @db.Decimal(18, 2)
+  note        String?
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])

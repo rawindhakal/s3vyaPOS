@@ -13,9 +13,11 @@ import { BarcodeGenerator } from '@/components/BarcodeGenerator';
 import { Modal } from '@/components/Modal';
 import { CheckoutModal, type CheckoutBilling } from '@/components/CheckoutModal';
 
+interface Variation { id: string; name: string; salePrice: string }
 interface Product {
   id: string; sku: string; barcode: string | null; name: string;
-  salePrice: string; taxRate: string; stock: string; categoryId: string | null;
+  salePrice: string; categoryId: string | null;
+  hasVariations: boolean; variations: Variation[];
 }
 
 export default function PosPage() {
@@ -29,6 +31,7 @@ export default function PosPage() {
   const [receipt, setReceipt] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cat, setCat] = useState('');
+  const [variationFor, setVariationFor] = useState<Product | null>(null);
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ['products'], queryFn: async () => (await api.get('/products')).data,
@@ -52,13 +55,22 @@ export default function PosPage() {
     });
   }, [products, search, cat]);
 
-  const addProduct = (p: Product) =>
-    cart.addItem({ productId: p.id, sku: p.sku, name: p.name, unitPrice: Number(p.salePrice), taxRate: Number(p.taxRate) });
+  const vat = Number(shop?.taxRate ?? 0);
+
+  const addProduct = (p: Product) => {
+    if (p.hasVariations) { setVariationFor(p); return; }
+    cart.addItem({ productId: p.id, sku: p.sku, name: p.name, unitPrice: Number(p.salePrice), taxRate: vat });
+  };
+
+  const pickVariation = (p: Product, v: Variation) => {
+    cart.addItem({ productId: p.id, variationId: v.id, sku: p.sku, name: `${p.name} (${v.name})`, unitPrice: Number(v.salePrice), taxRate: vat });
+    setVariationFor(null);
+  };
 
   const handleScan = (code: string) => {
     setScanOpen(false);
     const found = products.find((p) => p.barcode === code || p.sku === code);
-    if (found) { addProduct(found); toast.success(`Added ${found.name}`); }
+    if (found) { addProduct(found); toast.success(found.hasVariations ? `Pick a size for ${found.name}` : `Added ${found.name}`); }
     else toast.error('Product not found for scanned code');
   };
 
@@ -66,7 +78,7 @@ export default function PosPage() {
     setSubmitting(true);
     try {
       const { data } = await api.post('/sales', {
-        items: cart.lines.map((l) => ({ productId: l.productId, quantity: l.quantity, discount: l.discount })),
+        items: cart.lines.map((l) => ({ productId: l.productId, variationId: l.variationId, quantity: l.quantity, discount: l.discount })),
         discount: billing.discount,
         customerId: billing.customerId,
         redeemPoints: billing.redeemPoints,
@@ -106,8 +118,10 @@ export default function PosPage() {
             <div key={p.id} className="card flex flex-col p-3">
               <button className="flex-1 text-left" onClick={() => addProduct(p)}>
                 <div className="font-medium">{p.name}</div>
-                <div className="text-xs text-slate-500">{p.sku} · stock {Number(p.stock)}</div>
-                <div className="mt-1 font-semibold text-brand">{money(Number(p.salePrice), currency)}</div>
+                <div className="text-xs text-slate-500">{p.sku}</div>
+                <div className="mt-1 font-semibold text-brand">
+                  {p.hasVariations ? `${p.variations.length} sizes ▾` : money(Number(p.salePrice), currency)}
+                </div>
               </button>
               <button className="mt-2 text-xs text-slate-500 hover:text-brand" onClick={() => setBarcodeFor(p)}>
                 {p.barcode ? 'View barcode' : '⊕ Generate barcode'}
@@ -123,23 +137,23 @@ export default function PosPage() {
         <div className="flex-1 space-y-3 overflow-y-auto">
           {cart.lines.length === 0 && <p className="text-slate-400">Cart is empty.</p>}
           {cart.lines.map((l) => (
-            <div key={l.productId} className="border-b pb-2">
+            <div key={l.key} className="border-b pb-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <div className="truncate font-medium">{l.name}</div>
                   <div className="text-xs text-slate-500">{money(l.unitPrice, currency)}</div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button className="btn-ghost px-2 py-1" onClick={() => cart.setQty(l.productId, l.quantity - 1)}>−</button>
+                  <button className="btn-ghost px-2 py-1" onClick={() => cart.setQty(l.key, l.quantity - 1)}>−</button>
                   <span className="w-8 text-center">{l.quantity}</span>
-                  <button className="btn-ghost px-2 py-1" onClick={() => cart.setQty(l.productId, l.quantity + 1)}>+</button>
-                  <button className="ml-1 text-red-500" onClick={() => cart.removeItem(l.productId)}>✕</button>
+                  <button className="btn-ghost px-2 py-1" onClick={() => cart.setQty(l.key, l.quantity + 1)}>+</button>
+                  <button className="ml-1 text-red-500" onClick={() => cart.removeItem(l.key)}>✕</button>
                 </div>
               </div>
               <div className="mt-1 flex items-center justify-end gap-2 text-xs text-slate-500">
                 <span>Disc</span>
                 <input className="input h-7 w-20 text-right text-xs" type="number" value={l.discount}
-                  onChange={(e) => cart.setDiscount(l.productId, Number(e.target.value))} />
+                  onChange={(e) => cart.setDiscount(l.key, Number(e.target.value))} />
               </div>
             </div>
           ))}
@@ -157,6 +171,17 @@ export default function PosPage() {
       </Modal>
       <Modal open={!!barcodeFor} title={barcodeFor?.name} onClose={() => setBarcodeFor(null)}>
         {barcodeFor && <BarcodeGenerator value={barcodeFor.barcode || barcodeFor.sku} label={barcodeFor.name} />}
+      </Modal>
+
+      <Modal open={!!variationFor} title={`Select size · ${variationFor?.name ?? ''}`} onClose={() => setVariationFor(null)}>
+        <div className="grid grid-cols-2 gap-2">
+          {variationFor?.variations.map((v) => (
+            <button key={v.id} className="card p-3 text-left hover:border-brand" onClick={() => pickVariation(variationFor, v)}>
+              <div className="font-medium">{v.name}</div>
+              <div className="text-sm font-semibold text-brand">{money(Number(v.salePrice), currency)}</div>
+            </button>
+          ))}
+        </div>
       </Modal>
 
       <CheckoutModal

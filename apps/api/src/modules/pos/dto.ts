@@ -15,6 +15,7 @@ import { PaymentMethod, PaymentProvider } from '@prisma/client';
 export class SaleItemDto {
   @IsOptional() @IsString() productId?: string;
   @IsOptional() @IsString() sku?: string;
+  @IsOptional() @IsString() variationId?: string;
 
   @IsNumber() @Min(0.001) quantity!: number;
 

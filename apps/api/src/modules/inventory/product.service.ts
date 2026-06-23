@@ -37,8 +37,40 @@ export class ProductService {
           : {}),
       },
       orderBy: { name: 'asc' },
-      include: { category: true },
+      include: {
+        category: true,
+        variations: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
+      },
     });
+  }
+
+  listVariations(shopId: string, productId: string) {
+    return this.prisma.productVariation.findMany({
+      where: { shopId, productId, isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  // Replace a product's variations; toggles hasVariations accordingly.
+  async setVariations(
+    shopId: string,
+    productId: string,
+    variations: { name: string; salePrice: number; sku?: string }[],
+  ) {
+    const product = await this.prisma.product.findFirst({ where: { id: productId, shopId } });
+    if (!product) throw new NotFoundException('Product not found');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.productVariation.deleteMany({ where: { shopId, productId } });
+      if (variations.length > 0) {
+        await tx.productVariation.createMany({
+          data: variations.map((v, i) => ({
+            shopId, productId, name: v.name, salePrice: v.salePrice, sku: v.sku, sortOrder: i,
+          })),
+        });
+      }
+      await tx.product.update({ where: { id: productId }, data: { hasVariations: variations.length > 0 } });
+    });
+    return this.listVariations(shopId, productId);
   }
 
   // Inventory valuation at latest cost (stock * purchasePrice).

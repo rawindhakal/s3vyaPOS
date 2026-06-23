@@ -53,7 +53,7 @@ export class OrderService {
       channel?: string;
       customerName?: string;
       phone?: string;
-      items: { productId: string; quantity: number; note?: string }[];
+      items: { productId: string; variationId?: string; quantity: number; note?: string }[];
     },
   ) {
     if (!dto.items || dto.items.length === 0) {
@@ -70,6 +70,11 @@ export class OrderService {
     for (const i of dto.items) {
       if (!map.has(i.productId)) throw new BadRequestException(`Product not found: ${i.productId}`);
     }
+    const variationIds = dto.items.map((i) => i.variationId).filter(Boolean) as string[];
+    const variations = variationIds.length
+      ? await this.prisma.productVariation.findMany({ where: { shopId, id: { in: variationIds } } })
+      : [];
+    const vmap = new Map(variations.map((v) => [v.id, v]));
 
     const order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
@@ -83,7 +88,15 @@ export class OrderService {
           items: {
             create: dto.items.map((i) => {
               const p = map.get(i.productId)!;
-              return { productId: p.id, name: p.name, quantity: i.quantity, unitPrice: p.salePrice, note: i.note };
+              const v = i.variationId ? vmap.get(i.variationId) : null;
+              return {
+                productId: p.id,
+                name: v ? `${p.name} (${v.name})` : p.name,
+                variationId: v?.id,
+                quantity: i.quantity,
+                unitPrice: v ? v.salePrice : p.salePrice,
+                note: i.note,
+              };
             }),
           },
         },
@@ -126,6 +139,11 @@ export class OrderService {
         throw new BadRequestException(`Product not found: ${item.productId}`);
       }
     }
+    const variationIds = dto.items.map((i) => i.variationId).filter(Boolean) as string[];
+    const variations = variationIds.length
+      ? await this.prisma.productVariation.findMany({ where: { shopId, id: { in: variationIds } } })
+      : [];
+    const vmap = new Map(variations.map((v) => [v.id, v]));
 
     await this.prisma.$transaction(async (tx) => {
       await tx.orderItem.deleteMany({ where: { orderId: order.id } });
@@ -133,12 +151,14 @@ export class OrderService {
         await tx.orderItem.createMany({
           data: dto.items.map((i) => {
             const p = map.get(i.productId)!;
+            const v = i.variationId ? vmap.get(i.variationId) : null;
             return {
               orderId: order.id,
               productId: p.id,
-              name: p.name,
+              name: v ? `${p.name} (${v.name})` : p.name,
+              variationId: v?.id,
               quantity: i.quantity,
-              unitPrice: p.salePrice,
+              unitPrice: v ? v.salePrice : p.salePrice,
               note: i.note,
             };
           }),
@@ -162,6 +182,7 @@ export class OrderService {
     const sale = await this.sales.createSale(shopId, {
       items: order.items.map((i) => ({
         productId: i.productId,
+        variationId: i.variationId ?? undefined,
         quantity: Number(i.quantity),
         unitPrice: Number(i.unitPrice),
       })),

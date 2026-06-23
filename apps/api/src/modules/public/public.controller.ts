@@ -18,6 +18,7 @@ import { OrderService } from '../restaurant/order.service';
 
 class PublicItemDto {
   @IsString() productId!: string;
+  @IsOptional() @IsString() variationId?: string;
   @IsNumber() @Min(0.001) quantity!: number;
   @IsOptional() @IsString() note?: string;
 }
@@ -64,7 +65,10 @@ export class PublicController {
       this.prisma.category.findMany({ where: { shopId }, orderBy: { name: 'asc' } }),
       this.prisma.product.findMany({
         where: { shopId, isActive: true },
-        select: { id: true, name: true, description: true, salePrice: true, categoryId: true },
+        select: {
+          id: true, name: true, description: true, salePrice: true, categoryId: true, hasVariations: true,
+          variations: { where: { isActive: true }, orderBy: { sortOrder: 'asc' }, select: { id: true, name: true, salePrice: true } },
+        },
         orderBy: { name: 'asc' },
       }),
     ]);

@@ -38,6 +38,15 @@ class SetRecipeDto {
   @IsArray() @ValidateNested({ each: true }) @Type(() => RecipeComponentDto)
   components!: RecipeComponentDto[];
 }
+class VariationDto {
+  @IsString() @MinLength(1) name!: string;
+  @IsNumber() @Min(0) salePrice!: number;
+  @IsOptional() @IsString() sku?: string;
+}
+class SetVariationsDto {
+  @IsArray() @ValidateNested({ each: true }) @Type(() => VariationDto)
+  variations!: VariationDto[];
+}
 class AdjustDto {
   @IsNumber() delta!: number;
   @IsOptional() @IsString() reason?: string;
@@ -109,6 +118,16 @@ export class InventoryController {
   @Put(':id/recipe')
   setRecipe(@CurrentUser('shopId') shopId: string, @Param('id') id: string, @Body() dto: SetRecipeDto) {
     return this.recipes.setRecipe(shopId, id, dto.components);
+  }
+
+  @Get(':id/variations')
+  getVariations(@CurrentUser('shopId') shopId: string, @Param('id') id: string) {
+    return this.products.listVariations(shopId, id);
+  }
+
+  @Put(':id/variations')
+  setVariations(@CurrentUser('shopId') shopId: string, @Param('id') id: string, @Body() dto: SetVariationsDto) {
+    return this.products.setVariations(shopId, id, dto.variations);
   }
 
   @Post(':id/adjust')

@@ -9,7 +9,9 @@ import { money } from '@/lib/format';
 import { Modal } from '@/components/Modal';
 import { BarcodeGenerator } from '@/components/BarcodeGenerator';
 import { RecipeModal } from '@/components/RecipeModal';
+import { VariationsModal } from '@/components/VariationsModal';
 
+interface Variation { id: string; name: string; salePrice: string }
 interface Product {
   id: string;
   sku: string;
@@ -18,24 +20,13 @@ interface Product {
   categoryId: string | null;
   purchasePrice: string;
   salePrice: string;
-  stock: string;
-  taxRate: string;
-  reorderLevel: string;
   station: string;
+  hasVariations: boolean;
+  variations: Variation[];
 }
 interface Category { id: string; name: string }
 
-const empty = {
-  name: '',
-  barcode: '',
-  categoryId: '',
-  purchasePrice: 0,
-  salePrice: 0,
-  stock: 0,
-  taxRate: 13,
-  reorderLevel: 0,
-  station: 'KITCHEN',
-};
+const empty = { name: '', barcode: '', categoryId: '', purchasePrice: 0, salePrice: 0, station: 'KITCHEN' };
 
 export default function ProductsPage() {
   const currency = useAuth((s) => s.user?.currency ?? 'NPR');
@@ -47,14 +38,13 @@ export default function ProductsPage() {
   const [catOpen, setCatOpen] = useState(false);
   const [newCat, setNewCat] = useState('');
   const [recipeFor, setRecipeFor] = useState<Product | null>(null);
+  const [variationsFor, setVariationsFor] = useState<Product | null>(null);
 
   const { data: products = [], isLoading } = useQuery<Product[]>({
-    queryKey: ['products'],
-    queryFn: async () => (await api.get('/products')).data,
+    queryKey: ['products'], queryFn: async () => (await api.get('/products')).data,
   });
   const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ['categories'],
-    queryFn: async () => (await api.get('/products/categories')).data,
+    queryKey: ['categories'], queryFn: async () => (await api.get('/products/categories')).data,
   });
 
   const addCategory = useMutation({
@@ -71,53 +61,32 @@ export default function ProductsPage() {
         categoryId: form.categoryId || undefined,
         purchasePrice: Number(form.purchasePrice),
         salePrice: Number(form.salePrice),
-        stock: Number(form.stock),
-        taxRate: Number(form.taxRate),
-        reorderLevel: Number(form.reorderLevel),
         station: form.station,
       };
-      return editing
-        ? api.patch(`/products/${editing}`, payload)
-        : api.post('/products', payload);
+      return editing ? api.patch(`/products/${editing}`, payload) : api.post('/products', payload);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['products'] });
-      setFormOpen(false);
-      setForm(empty);
-      setEditing(null);
+      setFormOpen(false); setForm(empty); setEditing(null);
       toast.success('Saved');
     },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Save failed'),
   });
 
-  const openNew = () => {
-    setForm(empty);
-    setEditing(null);
-    setFormOpen(true);
-  };
-
+  const openNew = () => { setForm(empty); setEditing(null); setFormOpen(true); };
   const openEdit = (p: Product) => {
     setForm({
-      name: p.name,
-      barcode: p.barcode ?? '',
-      categoryId: p.categoryId ?? '',
-      purchasePrice: Number(p.purchasePrice),
-      salePrice: Number(p.salePrice),
-      stock: Number(p.stock),
-      taxRate: Number(p.taxRate),
-      reorderLevel: Number(p.reorderLevel),
-      station: p.station ?? 'KITCHEN',
+      name: p.name, barcode: p.barcode ?? '', categoryId: p.categoryId ?? '',
+      purchasePrice: Number(p.purchasePrice), salePrice: Number(p.salePrice), station: p.station ?? 'KITCHEN',
     });
-    setEditing(p.id);
-    setFormOpen(true);
+    setEditing(p.id); setFormOpen(true);
   };
-
   const set = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }));
 
   return (
     <div className="p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Products</h1>
+        <h1 className="text-2xl font-bold">Products / Menu</h1>
         <div className="flex gap-2">
           <button className="btn-ghost" onClick={() => setCatOpen(true)}>Categories</button>
           <button className="btn-primary" onClick={openNew}>+ Add product</button>
@@ -129,35 +98,34 @@ export default function ProductsPage() {
           <thead className="border-b bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="p-3">Name</th>
-              <th className="p-3">SKU</th>
-              <th className="p-3">Barcode</th>
+              <th className="p-3">Station</th>
               <th className="p-3 text-right">Cost</th>
               <th className="p-3 text-right">Price</th>
-              <th className="p-3 text-right">Stock</th>
               <th className="p-3"></th>
             </tr>
           </thead>
           <tbody>
-            {isLoading && (
-              <tr><td className="p-3" colSpan={7}>Loading…</td></tr>
-            )}
+            {isLoading && <tr><td className="p-3" colSpan={5}>Loading…</td></tr>}
             {products.map((p) => (
               <tr key={p.id} className="border-b last:border-0">
                 <td className="p-3 font-medium">{p.name}</td>
-                <td className="p-3">{p.sku}</td>
-                <td className="p-3">{p.barcode || <span className="text-slate-400">—</span>}</td>
+                <td className="p-3"><span className="rounded bg-slate-100 px-2 py-0.5 text-xs">{p.station}</span></td>
                 <td className="p-3 text-right">{money(Number(p.purchasePrice), currency)}</td>
-                <td className="p-3 text-right">{money(Number(p.salePrice), currency)}</td>
-                <td className="p-3 text-right">{Number(p.stock)}</td>
+                <td className="p-3 text-right">
+                  {p.hasVariations
+                    ? <span className="text-slate-500">{p.variations.length} variants</span>
+                    : money(Number(p.salePrice), currency)}
+                </td>
                 <td className="p-3 text-right whitespace-nowrap">
                   <button className="mr-3 text-brand hover:underline" onClick={() => openEdit(p)}>Edit</button>
+                  <button className="mr-3 text-slate-600 hover:underline" onClick={() => setVariationsFor(p)}>Variations</button>
                   <button className="mr-3 text-slate-600 hover:underline" onClick={() => setRecipeFor(p)}>Recipe</button>
                   <button className="text-slate-600 hover:underline" onClick={() => setBarcodeFor(p)}>Barcode</button>
                 </td>
               </tr>
             ))}
             {!isLoading && products.length === 0 && (
-              <tr><td className="p-6 text-center text-slate-400" colSpan={7}>No products yet.</td></tr>
+              <tr><td className="p-6 text-center text-slate-400" colSpan={5}>No products yet.</td></tr>
             )}
           </tbody>
         </table>
@@ -181,19 +149,11 @@ export default function ProductsPage() {
             <label className="text-sm">Cost
               <input className="input" type="number" value={form.purchasePrice} onChange={set('purchasePrice')} />
             </label>
-            <label className="text-sm">Sale price
+            <label className="text-sm">Price (single)
               <input className="input" type="number" value={form.salePrice} onChange={set('salePrice')} />
             </label>
-            <label className="text-sm">Stock
-              <input className="input" type="number" value={form.stock} onChange={set('stock')} />
-            </label>
-            <label className="text-sm">Tax %
-              <input className="input" type="number" value={form.taxRate} onChange={set('taxRate')} />
-            </label>
-            <label className="text-sm">Reorder level
-              <input className="input" type="number" value={form.reorderLevel} onChange={set('reorderLevel')} />
-            </label>
           </div>
+          <p className="text-xs text-slate-400">VAT is applied globally from Settings. For multi-size items, leave price as 0 and add Variations after saving.</p>
           <button className="btn-primary w-full" disabled={save.isPending} onClick={() => save.mutate()}>
             {save.isPending ? 'Saving…' : 'Save'}
           </button>
@@ -205,6 +165,7 @@ export default function ProductsPage() {
       </Modal>
 
       <RecipeModal product={recipeFor} products={products} onClose={() => setRecipeFor(null)} />
+      <VariationsModal product={variationsFor} onClose={() => setVariationsFor(null)} />
 
       <Modal open={catOpen} title="Menu categories" onClose={() => setCatOpen(false)}>
         <div className="space-y-3">

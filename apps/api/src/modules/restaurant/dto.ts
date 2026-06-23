@@ -33,6 +33,7 @@ export class CreateOrderDto {
 
 export class OrderItemDto {
   @IsString() productId!: string;
+  @IsOptional() @IsString() variationId?: string;
   @IsNumber() @Min(0.001) quantity!: number;
   @IsOptional() @IsString() note?: string;
 }
