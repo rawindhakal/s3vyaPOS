@@ -15,6 +15,15 @@ enum Role {
   MANAGER
   CASHIER
   ACCOUNTANT
+  WAITER
+}
+
+enum OrderLogAction {
+  CREATED
+  ITEMS_UPDATED
+  SENT_KOT
+  CANCELLED
+  SETTLED
 }
 
 enum BusinessType {
@@ -216,8 +225,9 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  shop  Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  sales Sale[]
+  shop         Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sales        Sale[]
+  waiterOrders Order[]
 
   @@unique([shopId, email])
   @@index([shopId])
@@ -582,19 +592,41 @@ model Order {
   id           String      @id @default(uuid())
   shopId       String
   tableId      String?
+  waiterId     String?
   orderType    OrderType   @default(COUNTER)
   status       OrderStatus @default(OPEN)
   saleId       String?
   customerName String?
   phone        String?
-  channel      String      @default("POS") // POS | QR | ONLINE
+  channel      String      @default("POS") // POS | QR | ONLINE | WAITER
+  kotPending   Boolean     @default(false)
+  kotVersion   Int         @default(0)
   createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt @default(now())
 
   shop  Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
   table RestaurantTable? @relation(fields: [tableId], references: [id])
+  waiter User?           @relation(fields: [waiterId], references: [id])
   items OrderItem[]
+  logs  OrderLog[]
 
   @@index([shopId, status])
+  @@index([shopId, kotPending])
+}
+
+model OrderLog {
+  id        String         @id @default(uuid())
+  shopId    String
+  orderId   String
+  userId    String?
+  action    OrderLogAction
+  detail    String?
+  createdAt DateTime       @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([shopId, createdAt])
 }
 
 model OrderItem {

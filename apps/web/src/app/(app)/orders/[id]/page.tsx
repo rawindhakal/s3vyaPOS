@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
 import { money } from '@/lib/format';
-import { printToStation, kotHtml, billHtml } from '@/lib/print';
+import { printToStation, billHtml } from '@/lib/print';
 import { Modal } from '@/components/Modal';
 import { CheckoutModal, type CheckoutBilling } from '@/components/CheckoutModal';
 
@@ -38,13 +38,17 @@ export default function OrderPage() {
   const { data: shop } = useQuery<any>({
     queryKey: ['shop'], queryFn: async () => (await api.get('/shop')).data,
   });
+  const role = useAuth((s) => s.user?.role);
+  const waiter = role === 'WAITER';
+
+  const productIds = [...new Set(lines.map((l) => l.productId))];
+  const { data: recs = [] } = useQuery<Product[]>({
+    queryKey: ['recs', productIds.sort().join(',')],
+    queryFn: async () => (await api.post('/recommendations', { productIds })).data,
+    enabled: lines.length > 0,
+  });
 
   const vat = Number(shop?.taxRate ?? 0);
-
-  const stationOf = useMemo(() => {
-    const m = new Map(products.map((p) => [p.id, p.station]));
-    return (pid: string) => m.get(pid) ?? 'KITCHEN';
-  }, [products]);
 
   useEffect(() => {
     if (order?.items) {
@@ -91,19 +95,15 @@ export default function OrderPage() {
     finally { setSaving(false); }
   };
 
-  // Save items, then route a KOT to each station's printer (kitchen / bar).
+  // Save items, then queue the order for KOT — the cashier device prints + buzzes.
   const sendKitchen = async () => {
-    await saveItems();
-    const title = order?.table?.name ? `Table ${order.table.name}` : order?.orderType ?? 'Order';
-    const groups: Record<string, { name: string; quantity: number }[]> = {};
-    for (const l of lines) {
-      const st = stationOf(l.productId);
-      (groups[st] ??= []).push({ name: l.name, quantity: l.quantity });
+    try {
+      await saveItems();
+      await api.post(`/orders/${id}/send-kot`);
+      toast.success('Sent to kitchen');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Failed to send');
     }
-    for (const st of ['KITCHEN', 'BAR'] as const) {
-      if (groups[st]?.length) await printToStation(st, kotHtml({ title, station: st, items: groups[st] }));
-    }
-    toast.success('Sent to kitchen');
   };
 
   const settle = async (billing: CheckoutBilling) => {
@@ -170,6 +170,18 @@ export default function OrderPage() {
             </div>
           ))}
         </div>
+        {recs.length > 0 && (
+          <div className="mt-2 border-t pt-2">
+            <div className="mb-1 text-xs font-medium text-slate-500">✨ Suggested add-ons</div>
+            <div className="flex flex-wrap gap-2">
+              {recs.map((r) => (
+                <button key={r.id} className="rounded-full bg-brand/10 px-3 py-1 text-xs text-brand hover:bg-brand/20" onClick={() => add(r)}>
+                  + {r.name}{!r.hasVariations ? ` · ${money(Number(r.salePrice), currency)}` : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="mt-3 space-y-1 border-t pt-3 text-sm">
           <div className="flex justify-between"><span>Subtotal</span><span>{money(subtotal, currency)}</span></div>
           <div className="flex justify-between"><span>Tax</span><span>{money(tax, currency)}</span></div>
@@ -179,7 +191,7 @@ export default function OrderPage() {
           <button className="btn-ghost" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save'}</button>
           <button className="btn-ghost" onClick={sendKitchen}>🖨 Send to kitchen</button>
           <button className="btn-ghost text-red-600" onClick={cancel}>Cancel order</button>
-          <button className="btn-primary" disabled={lines.length === 0} onClick={() => setSettleOpen(true)}>Settle</button>
+          {!waiter && <button className="btn-primary" disabled={lines.length === 0} onClick={() => setSettleOpen(true)}>Settle</button>}
         </div>
       </div>
 

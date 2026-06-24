@@ -140,6 +140,34 @@ export class ReportsService {
       .sort((a, b) => b.revenue - a.revenue);
   }
 
+  /** Waiter performance — orders taken, settled, and sales value per waiter. */
+  async getWaiterPerformance(shopId: string, fromISO?: string, toISO?: string) {
+    const { from, to } = this.range(fromISO, toISO);
+    const orders = await this.prisma.order.findMany({
+      where: { shopId, waiterId: { not: null }, createdAt: { gte: from, lte: to } },
+      select: { waiterId: true, status: true, saleId: true, waiter: { select: { fullName: true } } },
+    });
+    const saleIds = orders.map((o) => o.saleId).filter(Boolean) as string[];
+    const sales = saleIds.length
+      ? await this.prisma.sale.findMany({ where: { id: { in: saleIds } }, select: { id: true, total: true } })
+      : [];
+    const saleTotal = new Map(sales.map((s) => [s.id, num(s.total)]));
+
+    const map = new Map<string, { name: string; orders: number; settled: number; salesTotal: number }>();
+    for (const o of orders) {
+      const row = map.get(o.waiterId!) ?? { name: o.waiter?.fullName ?? 'Unknown', orders: 0, settled: 0, salesTotal: 0 };
+      row.orders += 1;
+      if (o.status === 'SETTLED') {
+        row.settled += 1;
+        row.salesTotal += saleTotal.get(o.saleId!) ?? 0;
+      }
+      map.set(o.waiterId!, row);
+    }
+    return [...map.values()]
+      .map((r) => ({ ...r, salesTotal: Math.round(r.salesTotal * 100) / 100, avgTicket: r.settled ? Math.round((r.salesTotal / r.settled) * 100) / 100 : 0 }))
+      .sort((a, b) => b.salesTotal - a.salesTotal);
+  }
+
   /** Day-end (Z) report — sales summary + payment-mode breakdown for a date range. */
   async getDayEnd(shopId: string, fromISO?: string, toISO?: string) {
     const now = new Date();

@@ -55,9 +55,18 @@ export class OrderController {
     return this.orders.listOpen(shopId);
   }
 
+  @Get('pending-kot')
+  pendingKot(@CurrentUser('shopId') shopId: string) {
+    return this.orders.listPendingKot(shopId);
+  }
+
   @Post()
-  create(@CurrentUser('shopId') shopId: string, @Body() dto: CreateOrderDto) {
-    return this.orders.create(shopId, dto);
+  create(
+    @CurrentUser('shopId') shopId: string,
+    @CurrentUser('userId') userId: string,
+    @Body() dto: CreateOrderDto,
+  ) {
+    return this.orders.create(shopId, dto, userId);
   }
 
   @Get('by-table/:tableId')
@@ -70,26 +79,51 @@ export class OrderController {
     return this.orders.get(shopId, id);
   }
 
+  @Get(':id/logs')
+  logs(@CurrentUser('shopId') shopId: string, @Param('id') id: string) {
+    return this.orders.listLogs(shopId, id);
+  }
+
   @Put(':id/items')
   setItems(
     @CurrentUser('shopId') shopId: string,
+    @CurrentUser('userId') userId: string,
     @Param('id') id: string,
     @Body() dto: SetOrderItemsDto,
   ) {
-    return this.orders.setItems(shopId, id, dto);
+    return this.orders.setItems(shopId, id, dto, userId);
+  }
+
+  @Post(':id/send-kot')
+  sendKot(
+    @CurrentUser('shopId') shopId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.orders.sendToKitchen(shopId, id, userId);
+  }
+
+  @Post(':id/kot-printed')
+  kotPrinted(@CurrentUser('shopId') shopId: string, @Param('id') id: string) {
+    return this.orders.markKotPrinted(shopId, id);
   }
 
   @Post(':id/settle')
   settle(
     @CurrentUser('shopId') shopId: string,
+    @CurrentUser('userId') userId: string,
     @Param('id') id: string,
     @Body() dto: SettleOrderDto,
   ) {
-    return this.orders.settle(shopId, id, dto);
+    return this.orders.settle(shopId, id, dto, userId);
   }
 
   @Post(':id/cancel')
-  cancel(@CurrentUser('shopId') shopId: string, @Param('id') id: string) {
-    return this.orders.cancel(shopId, id);
+  cancel(
+    @CurrentUser('shopId') shopId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.orders.cancel(shopId, id, userId);
   }
 }

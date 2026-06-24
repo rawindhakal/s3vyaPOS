@@ -1,6 +1,6 @@
 // Shared enums, constants and DTO contracts used by both api and web.
 
-export const ROLES = ['ADMIN', 'MANAGER', 'CASHIER', 'ACCOUNTANT'] as const;
+export const ROLES = ['ADMIN', 'MANAGER', 'CASHIER', 'ACCOUNTANT', 'WAITER'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const BUSINESS_TYPES = ['RESTAURANT'] as const;

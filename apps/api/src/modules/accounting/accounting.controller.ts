@@ -111,6 +111,11 @@ export class AccountingController {
     return this.reports.getSalesByCategory(shopId, from, to);
   }
 
+  @Get('reports/waiter-performance')
+  waiterPerformance(@CurrentUser('shopId') shopId: string, @Query('from') from?: string, @Query('to') to?: string) {
+    return this.reports.getWaiterPerformance(shopId, from, to);
+  }
+
   @Get('ledger/:accountId')
   ledger(
     @CurrentUser('shopId') shopId: string,

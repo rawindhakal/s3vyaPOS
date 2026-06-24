@@ -18,6 +18,7 @@ export default function ReportsPage() {
   const top = useQuery<any[]>({ queryKey: ['r-top', from, to], queryFn: async () => (await api.get('/accounting/reports/top-items', { params })).data });
   const staff = useQuery<any[]>({ queryKey: ['r-staff', from, to], queryFn: async () => (await api.get('/accounting/reports/sales-by-staff', { params })).data });
   const cat = useQuery<any[]>({ queryKey: ['r-cat', from, to], queryFn: async () => (await api.get('/accounting/reports/sales-by-category', { params })).data });
+  const waiters = useQuery<any[]>({ queryKey: ['r-waiter', from, to], queryFn: async () => (await api.get('/accounting/reports/waiter-performance', { params })).data });
 
   return (
     <div className="p-6">
@@ -40,6 +41,9 @@ export default function ReportsPage() {
         </Card>
         <Card title="Sales by category">
           <Table head={['Category', 'Qty', 'Revenue']} rows={(cat.data ?? []).map((r) => [r.category, String(r.qty), money(r.revenue, currency)])} />
+        </Card>
+        <Card title="Waiter performance">
+          <Table head={['Waiter', 'Bills', 'Sales', 'Avg ticket']} rows={(waiters.data ?? []).map((r) => [r.name, String(r.settled), money(r.salesTotal, currency), money(r.avgTicket, currency)])} />
         </Card>
       </div>
     </div>

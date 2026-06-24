@@ -9,8 +9,8 @@ import { isCashierMode } from '@/lib/desktop';
 // `cashier: true` items are the only ones shown in the desktop cashier terminal.
 const NAV = [
   { href: '/pos', label: 'Billing (POS)', icon: '🧾', cashier: true },
-  { href: '/tables', label: 'Tables', icon: '🍽️', cashier: true },
-  { href: '/kot', label: 'Kitchen (KOT)', icon: '👨‍🍳', cashier: true },
+  { href: '/tables', label: 'Tables', icon: '🍽️', cashier: true, waiter: true },
+  { href: '/kot', label: 'Kitchen (KOT)', icon: '👨‍🍳', cashier: true, waiter: true },
   { href: '/reservations', label: 'Reservations', icon: '📅', cashier: true },
   { href: '/customers', label: 'Customers', icon: '👤', cashier: true },
   { href: '/products', label: 'Products', icon: '📦', cashier: true },
@@ -37,7 +37,10 @@ export function Sidebar() {
   const [cashier, setCashier] = useState(false);
   useEffect(() => setCashier(isCashierMode()), []);
 
-  const items = NAV.filter((n) => !cashier || n.cashier);
+  const waiter = user?.role === 'WAITER';
+  const items = waiter
+    ? NAV.filter((n) => (n as any).waiter)
+    : NAV.filter((n) => !cashier || n.cashier);
 
   return (
     <aside className="no-print flex h-full w-60 shrink-0 flex-col bg-slate-900 text-slate-100">

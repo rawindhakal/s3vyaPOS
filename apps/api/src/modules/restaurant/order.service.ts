@@ -10,7 +10,7 @@ export class OrderService {
     private sales: SalesService,
   ) {}
 
-  async create(shopId: string, dto: CreateOrderDto) {
+  async create(shopId: string, dto: CreateOrderDto, userId?: string) {
     if (dto.tableId) {
       const table = await this.prisma.restaurantTable.findFirst({
         where: { id: dto.tableId, shopId },
@@ -24,8 +24,9 @@ export class OrderService {
 
     const order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
-        data: { shopId, tableId: dto.tableId, orderType: dto.orderType },
+        data: { shopId, tableId: dto.tableId, orderType: dto.orderType, waiterId: userId },
       });
+      await tx.orderLog.create({ data: { shopId, orderId: created.id, userId, action: 'CREATED' } });
       if (dto.tableId) {
         await tx.restaurantTable.update({
           where: { id: dto.tableId },
@@ -35,6 +36,40 @@ export class OrderService {
       return created;
     });
     return this.get(shopId, order.id);
+  }
+
+  // Waiter sends the order to the kitchen: queue it for printing on the cashier device.
+  async sendToKitchen(shopId: string, orderId: string, userId?: string) {
+    const order = await this.ensureOpen(shopId, orderId);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: { kotPending: true, kotVersion: { increment: 1 } },
+      });
+      await tx.orderLog.create({ data: { shopId, orderId: order.id, userId, action: 'SENT_KOT' } });
+    });
+    return this.get(shopId, order.id);
+  }
+
+  // Orders queued for KOT printing (polled by the cashier/kitchen device).
+  listPendingKot(shopId: string) {
+    return this.prisma.order.findMany({
+      where: { shopId, kotPending: true, status: 'OPEN' },
+      orderBy: { updatedAt: 'asc' },
+      include: { items: true, table: true, waiter: { select: { fullName: true } } },
+    });
+  }
+
+  async markKotPrinted(shopId: string, orderId: string) {
+    await this.prisma.order.updateMany({ where: { id: orderId, shopId }, data: { kotPending: false } });
+    return { ok: true };
+  }
+
+  listLogs(shopId: string, orderId: string) {
+    return this.prisma.orderLog.findMany({
+      where: { shopId, orderId },
+      orderBy: { createdAt: 'asc' },
+    });
   }
 
   get(shopId: string, id: string) {
@@ -127,7 +162,7 @@ export class OrderService {
   }
 
   // Replace the order's item list (cart-style save from the order screen).
-  async setItems(shopId: string, orderId: string, dto: SetOrderItemsDto) {
+  async setItems(shopId: string, orderId: string, dto: SetOrderItemsDto, userId?: string) {
     const order = await this.ensureOpen(shopId, orderId);
 
     const products = await this.prisma.product.findMany({
@@ -164,13 +199,17 @@ export class OrderService {
           }),
         });
       }
+      await tx.order.update({ where: { id: order.id }, data: { updatedAt: new Date() } });
+      await tx.orderLog.create({
+        data: { shopId, orderId: order.id, userId, action: 'ITEMS_UPDATED', detail: `${dto.items.length} item(s)` },
+      });
     });
     return this.get(shopId, order.id);
   }
 
   // Settle: turn the order into a Sale (reusing the double-entry sale flow),
   // mark the order settled and free the table.
-  async settle(shopId: string, orderId: string, dto: SettleOrderDto) {
+  async settle(shopId: string, orderId: string, dto: SettleOrderDto, userId?: string) {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, shopId },
       include: { items: true },
@@ -199,7 +238,10 @@ export class OrderService {
     await this.prisma.$transaction(async (tx) => {
       await tx.order.update({
         where: { id: order.id },
-        data: { status: 'SETTLED', saleId: sale?.id },
+        data: { status: 'SETTLED', saleId: sale?.id, kotPending: false },
+      });
+      await tx.orderLog.create({
+        data: { shopId, orderId: order.id, userId, action: 'SETTLED', detail: sale?.invoiceNo },
       });
       if (order.tableId) {
         await tx.restaurantTable.update({
@@ -212,10 +254,11 @@ export class OrderService {
     return sale;
   }
 
-  async cancel(shopId: string, orderId: string) {
+  async cancel(shopId: string, orderId: string, userId?: string) {
     const order = await this.ensureOpen(shopId, orderId);
     await this.prisma.$transaction(async (tx) => {
-      await tx.order.update({ where: { id: order.id }, data: { status: 'CANCELLED' } });
+      await tx.order.update({ where: { id: order.id }, data: { status: 'CANCELLED', kotPending: false } });
+      await tx.orderLog.create({ data: { shopId, orderId: order.id, userId, action: 'CANCELLED' } });
       if (order.tableId) {
         await tx.restaurantTable.update({
           where: { id: order.tableId },
