@@ -157,8 +157,23 @@ export class OrderService {
     return this.prisma.order.findMany({
       where: { shopId, status: 'OPEN' },
       orderBy: { createdAt: 'asc' },
-      include: { items: true, table: true },
+      include: {
+        items: { include: { product: { select: { station: true } } } },
+        table: true,
+        waiter: { select: { fullName: true } },
+      },
     });
+  }
+
+  // Toggle a single item's prep status (kitchen display bump).
+  async bumpItem(shopId: string, orderId: string, itemId: string) {
+    const order = await this.prisma.order.findFirst({ where: { id: orderId, shopId } });
+    if (!order) throw new NotFoundException('Order not found');
+    const item = await this.prisma.orderItem.findFirst({ where: { id: itemId, orderId } });
+    if (!item) throw new NotFoundException('Item not found');
+    const next = item.prepStatus === 'READY' ? 'PENDING' : 'READY';
+    await this.prisma.orderItem.update({ where: { id: itemId }, data: { prepStatus: next } });
+    return { id: itemId, prepStatus: next };
   }
 
   // Replace the order's item list (cart-style save from the order screen).

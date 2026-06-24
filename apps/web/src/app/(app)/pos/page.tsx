@@ -104,6 +104,7 @@ export default function PosPage() {
         <div className="flex gap-2">
           <input className="input" placeholder="Search by name / SKU / barcode" value={search} onChange={(e) => setSearch(e.target.value)} />
           <button className="btn-ghost whitespace-nowrap" onClick={() => setScanOpen(true)}>📷 Scan</button>
+          <button className="btn-ghost whitespace-nowrap no-print" onClick={() => { const el: any = document.documentElement; if (document.fullscreenElement) document.exitFullscreen(); else el.requestFullscreen?.(); }}>⛶</button>
         </div>
         {categories.length > 0 && (
           <div className="flex flex-wrap gap-2">

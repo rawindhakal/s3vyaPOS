@@ -109,6 +109,11 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PrepStatus {
+  PENDING
+  READY
+}
+
 enum PartyPaymentType {
   VENDOR_PAYMENT
   CUSTOMER_RECEIPT
@@ -635,9 +640,10 @@ model OrderItem {
   productId   String
   name        String
   variationId String?
-  quantity    Decimal @db.Decimal(18, 3)
-  unitPrice   Decimal @db.Decimal(18, 2)
+  quantity    Decimal    @db.Decimal(18, 3)
+  unitPrice   Decimal    @db.Decimal(18, 2)
   note        String?
+  prepStatus  PrepStatus @default(PENDING)
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])

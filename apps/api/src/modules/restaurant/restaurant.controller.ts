@@ -108,6 +108,11 @@ export class OrderController {
     return this.orders.markKotPrinted(shopId, id);
   }
 
+  @Post(':id/items/:itemId/bump')
+  bump(@CurrentUser('shopId') shopId: string, @Param('id') id: string, @Param('itemId') itemId: string) {
+    return this.orders.bumpItem(shopId, id, itemId);
+  }
+
   @Post(':id/settle')
   settle(
     @CurrentUser('shopId') shopId: string,
