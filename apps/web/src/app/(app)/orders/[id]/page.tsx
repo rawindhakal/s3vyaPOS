@@ -10,10 +10,12 @@ import { money } from '@/lib/format';
 import { printToStation, billHtml } from '@/lib/print';
 import { Modal } from '@/components/Modal';
 import { CheckoutModal, type CheckoutBilling } from '@/components/CheckoutModal';
+import { ProductConfigModal, type ConfiguredItem } from '@/components/ProductConfigModal';
 
 interface Variation { id: string; name: string; salePrice: string }
-interface Product { id: string; sku: string; name: string; salePrice: string; station: string; hasVariations: boolean; variations: Variation[] }
-interface Line { key: string; productId: string; variationId?: string; name: string; unitPrice: number; quantity: number }
+interface Modifier { id: string; name: string; price: string }
+interface Product { id: string; sku: string; name: string; salePrice: string; station: string; imageUrl: string | null; hasVariations: boolean; variations: Variation[]; modifiers: Modifier[] }
+interface Line { key: string; productId: string; variationId?: string; modifierIds?: string[]; name: string; unitPrice: number; quantity: number }
 
 export default function OrderPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,7 +26,7 @@ export default function OrderPage() {
   const [saving, setSaving] = useState(false);
   const [settleOpen, setSettleOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [variationFor, setVariationFor] = useState<Product | null>(null);
+  const [configFor, setConfigFor] = useState<Product | null>(null);
 
   const { data: order } = useQuery<any>({
     queryKey: ['order', id], queryFn: async () => (await api.get(`/orders/${id}`)).data,
@@ -64,20 +66,20 @@ export default function OrderPage() {
     return q ? products.filter((p) => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) : products;
   }, [products, search]);
 
-  const addLine = (productId: string, variationId: string | undefined, name: string, unitPrice: number) =>
+  const addLine = (productId: string, variationId: string | undefined, name: string, unitPrice: number, modifierIds: string[] = []) =>
     setLines((ls) => {
-      const key = variationId ?? productId;
+      const key = [variationId ?? productId, ...modifierIds.slice().sort()].join(':');
       const ex = ls.find((l) => l.key === key);
       if (ex) return ls.map((l) => (l.key === key ? { ...l, quantity: l.quantity + 1 } : l));
-      return [...ls, { key, productId, variationId, name, unitPrice, quantity: 1 }];
+      return [...ls, { key, productId, variationId, modifierIds, name, unitPrice, quantity: 1 }];
     });
   const add = (p: Product) => {
-    if (p.hasVariations) { setVariationFor(p); return; }
+    if (p.hasVariations || (p.modifiers?.length ?? 0) > 0) { setConfigFor(p); return; }
     addLine(p.id, undefined, p.name, Number(p.salePrice));
   };
-  const pickVariation = (p: Product, v: Variation) => {
-    addLine(p.id, v.id, `${p.name} (${v.name})`, Number(v.salePrice));
-    setVariationFor(null);
+  const addConfigured = (c: ConfiguredItem) => {
+    addLine(c.productId, c.variationId, c.name, c.unitPrice, c.modifierIds);
+    setConfigFor(null);
   };
   const setQty = (key: string, q: number) =>
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, quantity: q } : l)).filter((l) => l.quantity > 0));
@@ -86,7 +88,7 @@ export default function OrderPage() {
   const tax = lines.reduce((s, l) => s + (l.unitPrice * l.quantity * vat) / 100, 0);
 
   const saveItems = () =>
-    api.put(`/orders/${id}/items`, { items: lines.map((l) => ({ productId: l.productId, variationId: l.variationId, quantity: l.quantity })) });
+    api.put(`/orders/${id}/items`, { items: lines.map((l) => ({ productId: l.productId, variationId: l.variationId, modifierIds: l.modifierIds, quantity: l.quantity })) });
 
   const save = async () => {
     setSaving(true);
@@ -209,16 +211,7 @@ export default function OrderPage() {
         onConfirm={settle}
       />
 
-      <Modal open={!!variationFor} title={`Select size · ${variationFor?.name ?? ''}`} onClose={() => setVariationFor(null)}>
-        <div className="grid grid-cols-2 gap-2">
-          {variationFor?.variations.map((v) => (
-            <button key={v.id} className="card p-3 text-left hover:border-brand" onClick={() => pickVariation(variationFor, v)}>
-              <div className="font-medium">{v.name}</div>
-              <div className="text-sm font-semibold text-brand">{money(Number(v.salePrice), currency)}</div>
-            </button>
-          ))}
-        </div>
-      </Modal>
+      <ProductConfigModal product={configFor} currency={currency} onClose={() => setConfigFor(null)} onAdd={addConfigured} />
     </div>
   );
 }

@@ -24,6 +24,7 @@ export class CreateProductDto {
   @IsOptional() @IsNumber() @Min(0) taxRate?: number;
   @IsOptional() @IsNumber() @Min(0) reorderLevel?: number;
   @IsOptional() @IsEnum(StationType) station?: StationType;
+  @IsOptional() @IsString() imageUrl?: string;
 }
 
 export class UpdateProductDto extends CreateProductDto {

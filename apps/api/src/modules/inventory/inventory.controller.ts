@@ -47,6 +47,14 @@ class SetVariationsDto {
   @IsArray() @ValidateNested({ each: true }) @Type(() => VariationDto)
   variations!: VariationDto[];
 }
+class ModifierDto {
+  @IsString() @MinLength(1) name!: string;
+  @IsNumber() @Min(0) price!: number;
+}
+class SetModifiersDto {
+  @IsArray() @ValidateNested({ each: true }) @Type(() => ModifierDto)
+  modifiers!: ModifierDto[];
+}
 class AdjustDto {
   @IsNumber() delta!: number;
   @IsOptional() @IsString() reason?: string;
@@ -128,6 +136,16 @@ export class InventoryController {
   @Put(':id/variations')
   setVariations(@CurrentUser('shopId') shopId: string, @Param('id') id: string, @Body() dto: SetVariationsDto) {
     return this.products.setVariations(shopId, id, dto.variations);
+  }
+
+  @Get(':id/modifiers')
+  getModifiers(@CurrentUser('shopId') shopId: string, @Param('id') id: string) {
+    return this.products.listModifiers(shopId, id);
+  }
+
+  @Put(':id/modifiers')
+  setModifiers(@CurrentUser('shopId') shopId: string, @Param('id') id: string, @Body() dto: SetModifiersDto) {
+    return this.products.setModifiers(shopId, id, dto.modifiers);
   }
 
   @Post(':id/adjust')

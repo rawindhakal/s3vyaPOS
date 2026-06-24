@@ -3,9 +3,10 @@
 import { create } from 'zustand';
 
 export interface CartLine {
-  key: string; // variationId ?? productId
+  key: string; // productId + variationId + sorted modifierIds
   productId: string;
   variationId?: string;
+  modifierIds?: string[];
   sku: string;
   name: string;
   unitPrice: number;
@@ -32,7 +33,7 @@ export const useCart = create<CartState>((set, get) => ({
   lines: [],
   addItem: (p, qty = 1) =>
     set((state) => {
-      const key = p.variationId ?? p.productId;
+      const key = [p.variationId ?? p.productId, ...(p.modifierIds ?? []).slice().sort()].join(':');
       const existing = state.lines.find((l) => l.key === key);
       if (existing) {
         return { lines: state.lines.map((l) => (l.key === key ? { ...l, quantity: l.quantity + qty } : l)) };

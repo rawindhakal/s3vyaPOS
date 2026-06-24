@@ -328,6 +328,7 @@ model Product {
   reorderLevel  Decimal  @default(0) @db.Decimal(18, 3)
   station       StationType @default(KITCHEN)
   hasVariations Boolean  @default(false)
+  imageUrl      String?
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -341,6 +342,7 @@ model Product {
   ingredientOf  RecipeComponent[]  @relation("Ingredient")
   movements     StockMovement[]
   variations    ProductVariation[]
+  modifiers      Modifier[]
 
   @@unique([shopId, sku])
   @@unique([shopId, barcode])
@@ -355,6 +357,22 @@ model ProductVariation {
   name      String
   salePrice Decimal @db.Decimal(18, 2)
   sku       String?
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@index([productId])
+}
+
+// Add-ons / extras a customer can attach to a product (e.g. extra cheese).
+model Modifier {
+  id        String  @id @default(uuid())
+  shopId    String
+  productId String
+  name      String
+  price     Decimal @default(0) @db.Decimal(18, 2)
   sortOrder Int     @default(0)
   isActive  Boolean @default(true)
 

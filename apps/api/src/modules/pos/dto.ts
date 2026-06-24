@@ -21,6 +21,7 @@ export class SaleItemDto {
 
   @IsOptional() @IsNumber() @Min(0) unitPrice?: number;
   @IsOptional() @IsNumber() @Min(0) discount?: number; // per-line discount amount
+  @IsOptional() @IsArray() @IsString({ each: true }) modifierIds?: string[];
 }
 
 export class PaymentSplitDto {

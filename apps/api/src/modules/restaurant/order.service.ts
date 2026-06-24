@@ -88,7 +88,7 @@ export class OrderService {
       channel?: string;
       customerName?: string;
       phone?: string;
-      items: { productId: string; variationId?: string; quantity: number; note?: string }[];
+      items: { productId: string; variationId?: string; quantity: number; note?: string; modifierIds?: string[] }[];
     },
   ) {
     if (!dto.items || dto.items.length === 0) {
@@ -110,6 +110,7 @@ export class OrderService {
       ? await this.prisma.productVariation.findMany({ where: { shopId, id: { in: variationIds } } })
       : [];
     const vmap = new Map(variations.map((v) => [v.id, v]));
+    const mmap = await this.modifierMap(shopId, dto.items);
 
     const order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
@@ -124,12 +125,13 @@ export class OrderService {
             create: dto.items.map((i) => {
               const p = map.get(i.productId)!;
               const v = i.variationId ? vmap.get(i.variationId) : null;
+              const { add, suffix } = this.applyModifiers(i.modifierIds, mmap);
               return {
                 productId: p.id,
-                name: v ? `${p.name} (${v.name})` : p.name,
+                name: (v ? `${p.name} (${v.name})` : p.name) + suffix,
                 variationId: v?.id,
                 quantity: i.quantity,
-                unitPrice: v ? v.salePrice : p.salePrice,
+                unitPrice: Number(v ? v.salePrice : p.salePrice) + add,
                 note: i.note,
               };
             }),
@@ -176,6 +178,22 @@ export class OrderService {
     return { id: itemId, prepStatus: next };
   }
 
+  // Build a lookup of every modifier referenced across an order's items.
+  private async modifierMap(shopId: string, items: { modifierIds?: string[] }[]) {
+    const ids = [...new Set(items.flatMap((i) => i.modifierIds ?? []))];
+    if (ids.length === 0) return new Map<string, { name: string; price: any }>();
+    const mods = await this.prisma.modifier.findMany({ where: { shopId, id: { in: ids } } });
+    return new Map(mods.map((m) => [m.id, m]));
+  }
+
+  // Sum add-on prices and build the "+ Cheese, Bacon" name suffix for one item.
+  private applyModifiers(ids: string[] | undefined, mmap: Map<string, { name: string; price: any }>) {
+    const mods = (ids ?? []).map((id) => mmap.get(id)).filter(Boolean) as { name: string; price: any }[];
+    const add = Math.round(mods.reduce((s, m) => s + Number(m.price), 0) * 100) / 100;
+    const suffix = mods.length ? ` + ${mods.map((m) => m.name).join(', ')}` : '';
+    return { add, suffix };
+  }
+
   // Replace the order's item list (cart-style save from the order screen).
   async setItems(shopId: string, orderId: string, dto: SetOrderItemsDto, userId?: string) {
     const order = await this.ensureOpen(shopId, orderId);
@@ -194,6 +212,7 @@ export class OrderService {
       ? await this.prisma.productVariation.findMany({ where: { shopId, id: { in: variationIds } } })
       : [];
     const vmap = new Map(variations.map((v) => [v.id, v]));
+    const mmap = await this.modifierMap(shopId, dto.items);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.orderItem.deleteMany({ where: { orderId: order.id } });
@@ -202,13 +221,14 @@ export class OrderService {
           data: dto.items.map((i) => {
             const p = map.get(i.productId)!;
             const v = i.variationId ? vmap.get(i.variationId) : null;
+            const { add, suffix } = this.applyModifiers(i.modifierIds, mmap);
             return {
               orderId: order.id,
               productId: p.id,
-              name: v ? `${p.name} (${v.name})` : p.name,
+              name: (v ? `${p.name} (${v.name})` : p.name) + suffix,
               variationId: v?.id,
               quantity: i.quantity,
-              unitPrice: v ? v.salePrice : p.salePrice,
+              unitPrice: Number(v ? v.salePrice : p.salePrice) + add,
               note: i.note,
             };
           }),

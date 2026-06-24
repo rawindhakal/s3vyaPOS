@@ -36,6 +36,7 @@ export class OrderItemDto {
   @IsOptional() @IsString() variationId?: string;
   @IsNumber() @Min(0.001) quantity!: number;
   @IsOptional() @IsString() note?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) modifierIds?: string[];
 }
 
 export class SetOrderItemsDto {

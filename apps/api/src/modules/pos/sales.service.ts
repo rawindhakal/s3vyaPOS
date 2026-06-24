@@ -67,7 +67,10 @@ export class SalesService {
             });
             if (!variation) throw new BadRequestException('Variation not found');
           }
-          return { product, item, variation };
+          const modifiers = item.modifierIds?.length
+            ? await tx.modifier.findMany({ where: { id: { in: item.modifierIds }, shopId, productId: product.id } })
+            : [];
+          return { product, item, variation, modifiers };
         }),
       );
 
@@ -87,11 +90,13 @@ export class SalesService {
       // Per-line figures. Recipe items cost from ingredients & consume ingredient stock.
       // VAT is a single shop-level rate (set in admin settings), applied to every line.
       const vatRate = Number(shop.taxRate);
-      const lines = resolved.map(({ product, item, variation }) => {
+      const lines = resolved.map(({ product, item, variation, modifiers }) => {
         const comps = recipeBy.get(product.id);
         const basePrice = variation ? Number(variation.salePrice) : Number(product.salePrice);
-        const unitPrice = round2(item.unitPrice ?? basePrice);
-        const displayName = variation ? `${product.name} (${variation.name})` : product.name;
+        const modAdd = round2(modifiers.reduce((s, m) => s + Number(m.price), 0));
+        const unitPrice = round2((item.unitPrice ?? basePrice) + modAdd);
+        const modSuffix = modifiers.length ? ` + ${modifiers.map((m) => m.name).join(', ')}` : '';
+        const displayName = (variation ? `${product.name} (${variation.name})` : product.name) + modSuffix;
         const gross = round2(unitPrice * item.quantity);
         const lineDiscount = Math.min(round2(item.discount ?? 0), gross);
         const lineNet = round2(gross - lineDiscount);

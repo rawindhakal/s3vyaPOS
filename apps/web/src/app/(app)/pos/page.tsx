@@ -12,12 +12,14 @@ import { CameraScanner } from '@/components/CameraScanner';
 import { BarcodeGenerator } from '@/components/BarcodeGenerator';
 import { Modal } from '@/components/Modal';
 import { CheckoutModal, type CheckoutBilling } from '@/components/CheckoutModal';
+import { ProductConfigModal, type ConfiguredItem } from '@/components/ProductConfigModal';
 
 interface Variation { id: string; name: string; salePrice: string }
+interface Modifier { id: string; name: string; price: string }
 interface Product {
   id: string; sku: string; barcode: string | null; name: string;
-  salePrice: string; categoryId: string | null;
-  hasVariations: boolean; variations: Variation[];
+  salePrice: string; categoryId: string | null; imageUrl: string | null;
+  hasVariations: boolean; variations: Variation[]; modifiers: Modifier[];
 }
 
 export default function PosPage() {
@@ -31,7 +33,7 @@ export default function PosPage() {
   const [receipt, setReceipt] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cat, setCat] = useState('');
-  const [variationFor, setVariationFor] = useState<Product | null>(null);
+  const [configFor, setConfigFor] = useState<Product | null>(null);
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ['products'], queryFn: async () => (await api.get('/products')).data,
@@ -58,13 +60,13 @@ export default function PosPage() {
   const vat = Number(shop?.taxRate ?? 0);
 
   const addProduct = (p: Product) => {
-    if (p.hasVariations) { setVariationFor(p); return; }
+    if (p.hasVariations || (p.modifiers?.length ?? 0) > 0) { setConfigFor(p); return; }
     cart.addItem({ productId: p.id, sku: p.sku, name: p.name, unitPrice: Number(p.salePrice), taxRate: vat });
   };
 
-  const pickVariation = (p: Product, v: Variation) => {
-    cart.addItem({ productId: p.id, variationId: v.id, sku: p.sku, name: `${p.name} (${v.name})`, unitPrice: Number(v.salePrice), taxRate: vat });
-    setVariationFor(null);
+  const addConfigured = (c: ConfiguredItem) => {
+    cart.addItem({ productId: c.productId, variationId: c.variationId, modifierIds: c.modifierIds, sku: c.sku, name: c.name, unitPrice: c.unitPrice, taxRate: vat });
+    setConfigFor(null);
   };
 
   const handleScan = (code: string) => {
@@ -78,7 +80,7 @@ export default function PosPage() {
     setSubmitting(true);
     try {
       const { data } = await api.post('/sales', {
-        items: cart.lines.map((l) => ({ productId: l.productId, variationId: l.variationId, quantity: l.quantity, discount: l.discount })),
+        items: cart.lines.map((l) => ({ productId: l.productId, variationId: l.variationId, modifierIds: l.modifierIds, quantity: l.quantity, discount: l.discount })),
         discount: billing.discount,
         customerId: billing.customerId,
         redeemPoints: billing.redeemPoints,
@@ -116,12 +118,17 @@ export default function PosPage() {
         )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           {filtered.map((p) => (
-            <div key={p.id} className="card flex flex-col p-3">
+            <div key={p.id} className="card flex flex-col overflow-hidden p-3">
               <button className="flex-1 text-left" onClick={() => addProduct(p)}>
+                {p.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.imageUrl} alt={p.name} className="mb-2 h-24 w-full rounded-lg object-cover" />
+                )}
                 <div className="font-medium">{p.name}</div>
                 <div className="text-xs text-slate-500">{p.sku}</div>
                 <div className="mt-1 font-semibold text-brand">
                   {p.hasVariations ? `${p.variations.length} sizes ▾` : money(Number(p.salePrice), currency)}
+                  {(p.modifiers?.length ?? 0) > 0 && <span className="ml-1 text-xs text-slate-400">+ add-ons</span>}
                 </div>
               </button>
               <button className="mt-2 text-xs text-slate-500 hover:text-brand" onClick={() => setBarcodeFor(p)}>
@@ -174,16 +181,7 @@ export default function PosPage() {
         {barcodeFor && <BarcodeGenerator value={barcodeFor.barcode || barcodeFor.sku} label={barcodeFor.name} />}
       </Modal>
 
-      <Modal open={!!variationFor} title={`Select size · ${variationFor?.name ?? ''}`} onClose={() => setVariationFor(null)}>
-        <div className="grid grid-cols-2 gap-2">
-          {variationFor?.variations.map((v) => (
-            <button key={v.id} className="card p-3 text-left hover:border-brand" onClick={() => pickVariation(variationFor, v)}>
-              <div className="font-medium">{v.name}</div>
-              <div className="text-sm font-semibold text-brand">{money(Number(v.salePrice), currency)}</div>
-            </button>
-          ))}
-        </div>
-      </Modal>
+      <ProductConfigModal product={configFor} currency={currency} onClose={() => setConfigFor(null)} onAdd={addConfigured} />
 
       <CheckoutModal
         open={checkoutOpen}

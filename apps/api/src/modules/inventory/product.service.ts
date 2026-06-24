@@ -40,8 +40,30 @@ export class ProductService {
       include: {
         category: true,
         variations: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
+        modifiers: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
       },
     });
+  }
+
+  listModifiers(shopId: string, productId: string) {
+    return this.prisma.modifier.findMany({
+      where: { shopId, productId, isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async setModifiers(shopId: string, productId: string, modifiers: { name: string; price: number }[]) {
+    const product = await this.prisma.product.findFirst({ where: { id: productId, shopId } });
+    if (!product) throw new NotFoundException('Product not found');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.modifier.deleteMany({ where: { shopId, productId } });
+      if (modifiers.length > 0) {
+        await tx.modifier.createMany({
+          data: modifiers.map((m, i) => ({ shopId, productId, name: m.name, price: m.price, sortOrder: i })),
+        });
+      }
+    });
+    return this.listModifiers(shopId, productId);
   }
 
   listVariations(shopId: string, productId: string) {
@@ -122,6 +144,7 @@ export class ProductService {
         taxRate: dto.taxRate ?? 0,
         reorderLevel: dto.reorderLevel ?? 0,
         station: dto.station ?? 'KITCHEN',
+        imageUrl: dto.imageUrl,
       },
     });
   }
@@ -142,6 +165,7 @@ export class ProductService {
         taxRate: dto.taxRate,
         reorderLevel: dto.reorderLevel,
         station: dto.station,
+        imageUrl: dto.imageUrl,
         isActive: dto.isActive,
       },
     });
