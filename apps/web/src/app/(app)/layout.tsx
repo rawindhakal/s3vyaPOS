@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-store';
 import { isCashierMode } from '@/lib/desktop';
 import { Sidebar } from '@/components/Sidebar';
+import { Topbar } from '@/components/Topbar';
 import { NewOrderWatcher } from '@/components/NewOrderWatcher';
 
 const CASHIER_ALLOWED = ['/pos', '/tables', '/orders', '/kot', '/reservations', '/customers', '/products', '/printers'];
@@ -38,7 +39,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">{children}</main>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Topbar />
+        <main className="flex-1 overflow-y-auto">{children}</main>
+      </div>
       <NewOrderWatcher />
     </div>
   );

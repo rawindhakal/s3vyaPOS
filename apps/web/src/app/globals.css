@@ -5,6 +5,9 @@
 :root {
   color-scheme: light;
 }
+.dark {
+  color-scheme: dark;
+}
 
 html,
 body {
@@ -13,6 +16,9 @@ body {
 
 body {
   @apply bg-slate-100 text-slate-900;
+}
+.dark body {
+  @apply bg-slate-950 text-slate-100;
 }
 
 .btn {
@@ -24,12 +30,29 @@ body {
 .btn-ghost {
   @apply btn bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50;
 }
+.dark .btn-ghost {
+  @apply bg-slate-800 text-slate-200 ring-slate-700 hover:bg-slate-700;
+}
 .input {
-  @apply w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand focus:ring-1 focus:ring-brand;
+  @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-brand focus:ring-1 focus:ring-brand;
+}
+.dark .input {
+  @apply border-slate-700 bg-slate-900 text-slate-100;
 }
 .card {
   @apply rounded-xl bg-white shadow-sm ring-1 ring-slate-200;
 }
+.dark .card {
+  @apply bg-slate-900 ring-slate-800;
+}
+
+/* Common surfaces flip in dark mode */
+.dark .bg-white { @apply bg-slate-900; }
+.dark .bg-slate-50 { @apply bg-slate-800/60; }
+.dark .border-b, .dark .border-t, .dark .border, .dark .border-y { border-color: rgb(30 41 59); }
+.dark .text-slate-500 { @apply text-slate-400; }
+.dark .text-slate-600 { @apply text-slate-300; }
+.dark .text-slate-900 { @apply text-slate-100; }
 
 @media print {
   .no-print {
