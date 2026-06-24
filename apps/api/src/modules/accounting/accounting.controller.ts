@@ -116,6 +116,16 @@ export class AccountingController {
     return this.reports.getWaiterPerformance(shopId, from, to);
   }
 
+  @Get('reports/sales-trend')
+  salesTrend(@CurrentUser('shopId') shopId: string, @Query('from') from?: string, @Query('to') to?: string, @Query('bucket') bucket?: 'hour' | 'day') {
+    return this.reports.getSalesTrend(shopId, from, to, bucket ?? 'hour');
+  }
+
+  @Get('reports/service-split')
+  serviceSplit(@CurrentUser('shopId') shopId: string, @Query('from') from?: string, @Query('to') to?: string) {
+    return this.reports.getServiceSplit(shopId, from, to);
+  }
+
   @Get('ledger/:accountId')
   ledger(
     @CurrentUser('shopId') shopId: string,

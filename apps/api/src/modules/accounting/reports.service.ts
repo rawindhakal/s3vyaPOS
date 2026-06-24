@@ -140,6 +140,58 @@ export class ReportsService {
       .sort((a, b) => b.revenue - a.revenue);
   }
 
+  /** Sales totals bucketed by hour or day for a trend chart. */
+  async getSalesTrend(shopId: string, fromISO?: string, toISO?: string, bucket: 'hour' | 'day' = 'hour') {
+    const { from, to } = this.range(fromISO, toISO);
+    const sales = await this.prisma.sale.findMany({
+      where: { shopId, status: 'COMPLETED', createdAt: { gte: from, lte: to } },
+      select: { total: true, createdAt: true },
+    });
+    const map = new Map<string, number>();
+    for (const s of sales) {
+      const d = new Date(s.createdAt);
+      const key = bucket === 'day'
+        ? d.toISOString().slice(0, 10)
+        : `${String(d.getHours()).padStart(2, '0')}:00`;
+      map.set(key, (map.get(key) ?? 0) + num(s.total));
+    }
+    if (bucket === 'hour') {
+      // Fill all 24 hours for a smooth axis.
+      const rows = Array.from({ length: 24 }, (_, h) => {
+        const label = `${String(h).padStart(2, '0')}:00`;
+        return { label, total: Math.round((map.get(label) ?? 0) * 100) / 100 };
+      });
+      return rows;
+    }
+    return [...map.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([label, total]) => ({ label, total: Math.round(total * 100) / 100 }));
+  }
+
+  /** Sales split by service type (dine-in / takeaway / counter). */
+  async getServiceSplit(shopId: string, fromISO?: string, toISO?: string) {
+    const { from, to } = this.range(fromISO, toISO);
+    const sales = await this.prisma.sale.findMany({
+      where: { shopId, status: 'COMPLETED', createdAt: { gte: from, lte: to } },
+      select: { id: true, total: true },
+    });
+    const saleIds = sales.map((s) => s.id);
+    const orders = saleIds.length
+      ? await this.prisma.order.findMany({ where: { shopId, saleId: { in: saleIds } }, select: { saleId: true, orderType: true } })
+      : [];
+    const typeOf = new Map(orders.map((o) => [o.saleId!, o.orderType]));
+    const totals: Record<string, number> = { DINE_IN: 0, TAKEAWAY: 0, COUNTER: 0 };
+    for (const s of sales) {
+      const t = typeOf.get(s.id) ?? 'COUNTER';
+      totals[t] = (totals[t] ?? 0) + num(s.total);
+    }
+    return [
+      { type: 'Dine-in', total: Math.round(totals.DINE_IN * 100) / 100 },
+      { type: 'Takeaway', total: Math.round(totals.TAKEAWAY * 100) / 100 },
+      { type: 'Counter', total: Math.round(totals.COUNTER * 100) / 100 },
+    ];
+  }
+
   /** Waiter performance — orders taken, settled, and sales value per waiter. */
   async getWaiterPerformance(shopId: string, fromISO?: string, toISO?: string) {
     const { from, to } = this.range(fromISO, toISO);
