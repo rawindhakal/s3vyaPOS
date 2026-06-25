@@ -12,19 +12,21 @@ export interface ConfigProduct {
 }
 
 export interface ConfiguredItem {
-  productId: string; sku: string; variationId?: string; modifierIds: string[]; name: string; unitPrice: number;
+  productId: string; sku: string; variationId?: string; modifierIds: string[]; name: string; unitPrice: number; note?: string;
 }
 
 export function ProductConfigModal({
-  product, currency, onClose, onAdd,
+  product, currency, onClose, onAdd, withNote = false,
 }: {
   product: ConfigProduct | null;
   currency: string;
   onClose: () => void;
   onAdd: (item: ConfiguredItem) => void;
+  withNote?: boolean;
 }) {
   const [variationId, setVariationId] = useState<string | undefined>(undefined);
   const [mods, setMods] = useState<string[]>([]);
+  const [note, setNote] = useState('');
 
   if (!product) return null;
   const modifiers = product.modifiers ?? [];
@@ -35,11 +37,11 @@ export function ProductConfigModal({
   const unitPrice = base + modAdd;
   const canAdd = !product.hasVariations || !!variationId;
 
-  const reset = () => { setVariationId(undefined); setMods([]); };
+  const reset = () => { setVariationId(undefined); setMods([]); setNote(''); };
   const add = () => {
     const suffix = selMods.length ? ` + ${selMods.map((m) => m.name).join(', ')}` : '';
     const name = (variation ? `${product.name} (${variation.name})` : product.name) + suffix;
-    onAdd({ productId: product.id, sku: product.sku, variationId, modifierIds: mods, name, unitPrice });
+    onAdd({ productId: product.id, sku: product.sku, variationId, modifierIds: mods, name, unitPrice, note: note.trim() || undefined });
     reset();
   };
 
@@ -76,6 +78,13 @@ export function ProductConfigModal({
                 </label>
               ))}
             </div>
+          </div>
+        )}
+
+        {withNote && (
+          <div>
+            <div className="mb-1 text-sm font-medium">Note to kitchen</div>
+            <input className="input" placeholder="e.g. no onions, extra spicy" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
         )}
 

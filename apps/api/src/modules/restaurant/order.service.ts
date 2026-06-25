@@ -46,6 +46,7 @@ export class OrderService {
         where: { id: order.id },
         data: { kotPending: true, kotVersion: { increment: 1 } },
       });
+      await tx.orderItem.updateMany({ where: { orderId: order.id, sent: false }, data: { sent: true } });
       await tx.orderLog.create({ data: { shopId, orderId: order.id, userId, action: 'SENT_KOT' } });
     });
     return this.get(shopId, order.id);
@@ -192,6 +193,104 @@ export class OrderService {
     const add = Math.round(mods.reduce((s, m) => s + Number(m.price), 0) * 100) / 100;
     const suffix = mods.length ? ` + ${mods.map((m) => m.name).join(', ')}` : '';
     return { add, suffix };
+  }
+
+  // ── Item-level operations (advanced order screen) ──
+
+  // Add a single item to an open order (resolves variation + add-ons, logs it).
+  async addItem(
+    shopId: string,
+    orderId: string,
+    dto: { productId: string; variationId?: string; modifierIds?: string[]; quantity: number; note?: string },
+    userId?: string,
+  ) {
+    const order = await this.ensureOpen(shopId, orderId);
+    const product = await this.prisma.product.findFirst({ where: { id: dto.productId, shopId, isActive: true } });
+    if (!product) throw new BadRequestException('Product not found');
+    let variation = null;
+    if (dto.variationId) {
+      variation = await this.prisma.productVariation.findFirst({ where: { id: dto.variationId, shopId, productId: product.id } });
+      if (!variation) throw new BadRequestException('Variation not found');
+    }
+    const mmap = await this.modifierMap(shopId, [dto]);
+    const { add, suffix } = this.applyModifiers(dto.modifierIds, mmap);
+    const name = (variation ? `${product.name} (${variation.name})` : product.name) + suffix;
+    const unitPrice = Number(variation ? variation.salePrice : product.salePrice) + add;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderItem.create({
+        data: { orderId: order.id, productId: product.id, name, variationId: variation?.id, quantity: dto.quantity, unitPrice, note: dto.note },
+      });
+      await tx.order.update({ where: { id: order.id }, data: { updatedAt: new Date() } });
+      await tx.orderLog.create({ data: { shopId, orderId: order.id, userId, action: 'ITEM_ADDED', detail: `${dto.quantity}× ${name}` } });
+    });
+    return this.get(shopId, order.id);
+  }
+
+  // Change quantity / kitchen note on one item. Reducing a sent item is a partial void.
+  async updateItem(shopId: string, orderId: string, itemId: string, dto: { quantity?: number; note?: string; reason?: string }, userId?: string) {
+    const order = await this.ensureOpen(shopId, orderId);
+    const item = await this.prisma.orderItem.findFirst({ where: { id: itemId, orderId: order.id } });
+    if (!item) throw new NotFoundException('Item not found');
+    const newQty = dto.quantity ?? Number(item.quantity);
+    if (newQty <= 0) throw new BadRequestException('Use void to remove an item');
+    const reduced = item.sent && newQty < Number(item.quantity);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderItem.update({ where: { id: item.id }, data: { quantity: newQty, note: dto.note ?? item.note } });
+      await tx.order.update({ where: { id: order.id }, data: { updatedAt: new Date() } });
+      await tx.orderLog.create({
+        data: {
+          shopId, orderId: order.id, userId,
+          action: reduced ? 'ITEM_VOIDED' : 'ITEMS_UPDATED',
+          detail: reduced
+            ? `Reduced ${item.name} ${Number(item.quantity)}→${newQty}${dto.reason ? ` — ${dto.reason}` : ''}`
+            : `${item.name} → ${newQty}`,
+        },
+      });
+    });
+    return this.get(shopId, order.id);
+  }
+
+  // Remove an item entirely; a reason is recorded for accountability.
+  async voidItem(shopId: string, orderId: string, itemId: string, dto: { reason?: string }, userId?: string) {
+    const order = await this.ensureOpen(shopId, orderId);
+    const item = await this.prisma.orderItem.findFirst({ where: { id: itemId, orderId: order.id } });
+    if (!item) throw new NotFoundException('Item not found');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderItem.delete({ where: { id: item.id } });
+      await tx.order.update({ where: { id: order.id }, data: { updatedAt: new Date() } });
+      await tx.orderLog.create({
+        data: { shopId, orderId: order.id, userId, action: 'ITEM_VOIDED', detail: `Void ${Number(item.quantity)}× ${item.name}${item.sent ? ' (sent)' : ''}${dto.reason ? ` — ${dto.reason}` : ''}` },
+      });
+    });
+    return this.get(shopId, order.id);
+  }
+
+  // Order-level note (e.g. "birthday") and guest/cover count.
+  async updateMeta(shopId: string, orderId: string, dto: { note?: string; guests?: number }, userId?: string) {
+    const order = await this.ensureOpen(shopId, orderId);
+    await this.prisma.order.update({ where: { id: order.id }, data: { note: dto.note, guests: dto.guests } });
+    await this.prisma.orderLog.create({ data: { shopId, orderId: order.id, userId, action: 'ITEMS_UPDATED', detail: `Order info updated` } });
+    return this.get(shopId, order.id);
+  }
+
+  // Move an order to another (free) table.
+  async moveTable(shopId: string, orderId: string, dto: { tableId: string }, userId?: string) {
+    const order = await this.ensureOpen(shopId, orderId);
+    const target = await this.prisma.restaurantTable.findFirst({ where: { id: dto.tableId, shopId } });
+    if (!target) throw new NotFoundException('Table not found');
+    const busy = await this.prisma.order.findFirst({ where: { shopId, tableId: dto.tableId, status: 'OPEN', NOT: { id: order.id } } });
+    if (busy) throw new BadRequestException('Target table is occupied');
+    await this.prisma.$transaction(async (tx) => {
+      if (order.tableId && order.tableId !== dto.tableId) {
+        await tx.restaurantTable.update({ where: { id: order.tableId }, data: { status: 'FREE' } });
+      }
+      await tx.restaurantTable.update({ where: { id: dto.tableId }, data: { status: 'OCCUPIED' } });
+      await tx.order.update({ where: { id: order.id }, data: { tableId: dto.tableId } });
+      await tx.orderLog.create({ data: { shopId, orderId: order.id, userId, action: 'MOVED', detail: `→ Table ${target.name}` } });
+    });
+    return this.get(shopId, order.id);
   }
 
   // Replace the order's item list (cart-style save from the order screen).

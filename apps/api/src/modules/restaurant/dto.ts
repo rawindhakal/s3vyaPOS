@@ -46,6 +46,33 @@ export class SetOrderItemsDto {
   items!: OrderItemDto[];
 }
 
+export class AddOrderItemDto {
+  @IsString() productId!: string;
+  @IsOptional() @IsString() variationId?: string;
+  @IsNumber() @Min(0.001) quantity!: number;
+  @IsOptional() @IsString() note?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) modifierIds?: string[];
+}
+
+export class UpdateOrderItemDto {
+  @IsOptional() @IsNumber() @Min(0.001) quantity?: number;
+  @IsOptional() @IsString() note?: string;
+  @IsOptional() @IsString() reason?: string;
+}
+
+export class VoidOrderItemDto {
+  @IsOptional() @IsString() reason?: string;
+}
+
+export class OrderMetaDto {
+  @IsOptional() @IsString() note?: string;
+  @IsOptional() @IsInt() @Min(0) guests?: number;
+}
+
+export class MoveTableDto {
+  @IsString() tableId!: string;
+}
+
 export class SettlePaymentDto {
   @IsEnum(PaymentMethod) method!: PaymentMethod;
   @IsOptional() @IsEnum(PaymentProvider) provider?: PaymentProvider;

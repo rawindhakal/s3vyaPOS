@@ -13,11 +13,16 @@ import { CurrentUser } from '../../common/current-user.decorator';
 import { TableService } from './table.service';
 import { OrderService } from './order.service';
 import {
+  AddOrderItemDto,
   CreateOrderDto,
   CreateTableDto,
+  MoveTableDto,
+  OrderMetaDto,
   SetOrderItemsDto,
   SettleOrderDto,
+  UpdateOrderItemDto,
   UpdateTableDto,
+  VoidOrderItemDto,
 } from './dto';
 
 @UseGuards(JwtAuthGuard)
@@ -92,6 +97,58 @@ export class OrderController {
     @Body() dto: SetOrderItemsDto,
   ) {
     return this.orders.setItems(shopId, id, dto, userId);
+  }
+
+  @Post(':id/items')
+  addItem(
+    @CurrentUser('shopId') shopId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+    @Body() dto: AddOrderItemDto,
+  ) {
+    return this.orders.addItem(shopId, id, dto, userId);
+  }
+
+  @Patch(':id/items/:itemId')
+  updateItem(
+    @CurrentUser('shopId') shopId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateOrderItemDto,
+  ) {
+    return this.orders.updateItem(shopId, id, itemId, dto, userId);
+  }
+
+  @Post(':id/items/:itemId/void')
+  voidItem(
+    @CurrentUser('shopId') shopId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: VoidOrderItemDto,
+  ) {
+    return this.orders.voidItem(shopId, id, itemId, dto, userId);
+  }
+
+  @Patch(':id/meta')
+  updateMeta(
+    @CurrentUser('shopId') shopId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+    @Body() dto: OrderMetaDto,
+  ) {
+    return this.orders.updateMeta(shopId, id, dto, userId);
+  }
+
+  @Post(':id/move')
+  move(
+    @CurrentUser('shopId') shopId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+    @Body() dto: MoveTableDto,
+  ) {
+    return this.orders.moveTable(shopId, id, dto, userId);
   }
 
   @Post(':id/send-kot')

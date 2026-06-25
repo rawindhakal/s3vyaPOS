@@ -21,7 +21,10 @@ enum Role {
 enum OrderLogAction {
   CREATED
   ITEMS_UPDATED
+  ITEM_ADDED
+  ITEM_VOIDED
   SENT_KOT
+  MOVED
   CANCELLED
   SETTLED
 }
@@ -622,6 +625,8 @@ model Order {
   customerName String?
   phone        String?
   channel      String      @default("POS") // POS | QR | ONLINE | WAITER
+  note         String?
+  guests       Int?
   kotPending   Boolean     @default(false)
   kotVersion   Int         @default(0)
   createdAt    DateTime    @default(now())
@@ -662,6 +667,7 @@ model OrderItem {
   unitPrice   Decimal    @db.Decimal(18, 2)
   note        String?
   prepStatus  PrepStatus @default(PENDING)
+  sent        Boolean    @default(false)
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
