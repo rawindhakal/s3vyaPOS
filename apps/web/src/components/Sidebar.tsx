@@ -16,8 +16,8 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: '/pos', label: 'Billing (POS)', icon: '🧾', cashier: true },
       { href: '/tables', label: 'Tables', icon: '🍽️', cashier: true, waiter: true },
-      { href: '/kot', label: 'Kitchen (KOT)', icon: '👨‍🍳', cashier: true, waiter: true },
-      { href: '/kds', label: 'Kitchen Display', icon: '🖥️', cashier: true },
+      { href: '/kot', label: 'Running Orders', icon: '🧑‍🍳', cashier: true, waiter: true },
+      { href: '/kds', label: 'Kitchen Display', icon: '🖥️' },
       { href: '/reservations', label: 'Reservations', icon: '📅', cashier: true },
     ],
   },

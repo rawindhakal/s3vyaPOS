@@ -14,7 +14,7 @@ import { ProductConfigModal, type ConfiguredItem } from '@/components/ProductCon
 
 interface Variation { id: string; name: string; salePrice: string }
 interface Modifier { id: string; name: string; price: string }
-interface Product { id: string; sku: string; name: string; salePrice: string; station: string; imageUrl: string | null; hasVariations: boolean; variations: Variation[]; modifiers: Modifier[] }
+interface Product { id: string; sku: string; name: string; salePrice: string; station: string; hasVariations: boolean; variations: Variation[]; modifiers: Modifier[] }
 interface Item { id: string; productId: string; name: string; unitPrice: string; quantity: string; note: string | null; sent: boolean; prepStatus: string }
 
 export default function OrderPage() {

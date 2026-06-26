@@ -7,7 +7,6 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
 import { money } from '@/lib/format';
 import { Modal } from '@/components/Modal';
-import { BarcodeGenerator } from '@/components/BarcodeGenerator';
 import { RecipeModal } from '@/components/RecipeModal';
 import { VariationsModal } from '@/components/VariationsModal';
 import { ModifiersModal } from '@/components/ModifiersModal';
@@ -16,19 +15,17 @@ interface Variation { id: string; name: string; salePrice: string }
 interface Product {
   id: string;
   sku: string;
-  barcode: string | null;
   name: string;
   categoryId: string | null;
   purchasePrice: string;
   salePrice: string;
   station: string;
-  imageUrl: string | null;
   hasVariations: boolean;
   variations: Variation[];
 }
 interface Category { id: string; name: string }
 
-const empty = { name: '', barcode: '', categoryId: '', purchasePrice: 0, salePrice: 0, station: 'KITCHEN' };
+const empty = { name: '', categoryId: '', purchasePrice: 0, salePrice: 0, station: 'KITCHEN' };
 
 export default function ProductsPage() {
   const currency = useAuth((s) => s.user?.currency ?? 'NPR');
@@ -36,7 +33,6 @@ export default function ProductsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<any>(empty);
   const [editing, setEditing] = useState<string | null>(null);
-  const [barcodeFor, setBarcodeFor] = useState<Product | null>(null);
   const [catOpen, setCatOpen] = useState(false);
   const [newCat, setNewCat] = useState('');
   const [recipeFor, setRecipeFor] = useState<Product | null>(null);
@@ -60,12 +56,10 @@ export default function ProductsPage() {
     mutationFn: async () => {
       const payload = {
         name: form.name,
-        barcode: form.barcode || undefined,
         categoryId: form.categoryId || undefined,
         purchasePrice: Number(form.purchasePrice),
         salePrice: Number(form.salePrice),
         station: form.station,
-        imageUrl: form.imageUrl || undefined,
       };
       return editing ? api.patch(`/products/${editing}`, payload) : api.post('/products', payload);
     },
@@ -80,9 +74,8 @@ export default function ProductsPage() {
   const openNew = () => { setForm(empty); setEditing(null); setFormOpen(true); };
   const openEdit = (p: Product) => {
     setForm({
-      name: p.name, barcode: p.barcode ?? '', categoryId: p.categoryId ?? '',
+      name: p.name, categoryId: p.categoryId ?? '',
       purchasePrice: Number(p.purchasePrice), salePrice: Number(p.salePrice), station: p.station ?? 'KITCHEN',
-      imageUrl: p.imageUrl ?? '',
     });
     setEditing(p.id); setFormOpen(true);
   };
@@ -125,8 +118,7 @@ export default function ProductsPage() {
                   <button className="mr-3 text-brand hover:underline" onClick={() => openEdit(p)}>Edit</button>
                   <button className="mr-3 text-slate-600 hover:underline" onClick={() => setVariationsFor(p)}>Variations</button>
                   <button className="mr-3 text-slate-600 hover:underline" onClick={() => setModifiersFor(p)}>Add-ons</button>
-                  <button className="mr-3 text-slate-600 hover:underline" onClick={() => setRecipeFor(p)}>Recipe</button>
-                  <button className="text-slate-600 hover:underline" onClick={() => setBarcodeFor(p)}>Barcode</button>
+                  <button className="text-slate-600 hover:underline" onClick={() => setRecipeFor(p)}>Recipe</button>
                 </td>
               </tr>
             ))}
@@ -140,12 +132,6 @@ export default function ProductsPage() {
       <Modal open={formOpen} title={editing ? 'Edit product' : 'Add product'} onClose={() => setFormOpen(false)}>
         <div className="space-y-3">
           <input className="input" placeholder="Name" value={form.name} onChange={set('name')} />
-          <input className="input" placeholder="Barcode (optional — auto SKU if blank)" value={form.barcode} onChange={set('barcode')} />
-          <input className="input" placeholder="Image URL (optional)" value={form.imageUrl ?? ''} onChange={set('imageUrl')} />
-          {form.imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={form.imageUrl} alt="" className="h-24 w-full rounded-lg object-cover" />
-          )}
           <select className="input" value={form.categoryId} onChange={set('categoryId')}>
             <option value="">No category</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -169,10 +155,6 @@ export default function ProductsPage() {
             {save.isPending ? 'Saving…' : 'Save'}
           </button>
         </div>
-      </Modal>
-
-      <Modal open={!!barcodeFor} title={barcodeFor?.name} onClose={() => setBarcodeFor(null)}>
-        {barcodeFor && <BarcodeGenerator value={barcodeFor.barcode || barcodeFor.sku} label={barcodeFor.name} />}
       </Modal>
 
       <RecipeModal product={recipeFor} products={products} onClose={() => setRecipeFor(null)} />

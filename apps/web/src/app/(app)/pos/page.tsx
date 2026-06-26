@@ -8,8 +8,6 @@ import { useAuth } from '@/lib/auth-store';
 import { useCart } from '@/store/cart';
 import { money } from '@/lib/format';
 import { printToStation, billHtml } from '@/lib/print';
-import { CameraScanner } from '@/components/CameraScanner';
-import { BarcodeGenerator } from '@/components/BarcodeGenerator';
 import { Modal } from '@/components/Modal';
 import { CheckoutModal, type CheckoutBilling } from '@/components/CheckoutModal';
 import { ProductConfigModal, type ConfiguredItem } from '@/components/ProductConfigModal';
@@ -17,8 +15,8 @@ import { ProductConfigModal, type ConfiguredItem } from '@/components/ProductCon
 interface Variation { id: string; name: string; salePrice: string }
 interface Modifier { id: string; name: string; price: string }
 interface Product {
-  id: string; sku: string; barcode: string | null; name: string;
-  salePrice: string; categoryId: string | null; imageUrl: string | null;
+  id: string; sku: string; name: string;
+  salePrice: string; categoryId: string | null;
   hasVariations: boolean; variations: Variation[]; modifiers: Modifier[];
 }
 
@@ -27,8 +25,6 @@ export default function PosPage() {
   const qc = useQueryClient();
   const cart = useCart();
   const [search, setSearch] = useState('');
-  const [scanOpen, setScanOpen] = useState(false);
-  const [barcodeFor, setBarcodeFor] = useState<Product | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [receipt, setReceipt] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -53,7 +49,7 @@ export default function PosPage() {
     return products.filter((p) => {
       if (cat && p.categoryId !== cat) return false;
       if (!q) return true;
-      return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.barcode ?? '').includes(q);
+      return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
     });
   }, [products, search, cat]);
 
@@ -67,13 +63,6 @@ export default function PosPage() {
   const addConfigured = (c: ConfiguredItem) => {
     cart.addItem({ productId: c.productId, variationId: c.variationId, modifierIds: c.modifierIds, sku: c.sku, name: c.name, unitPrice: c.unitPrice, taxRate: vat });
     setConfigFor(null);
-  };
-
-  const handleScan = (code: string) => {
-    setScanOpen(false);
-    const found = products.find((p) => p.barcode === code || p.sku === code);
-    if (found) { addProduct(found); toast.success(found.hasVariations ? `Pick a size for ${found.name}` : `Added ${found.name}`); }
-    else toast.error('Product not found for scanned code');
   };
 
   const checkout = async (billing: CheckoutBilling) => {
@@ -104,8 +93,7 @@ export default function PosPage() {
     <div className="flex h-full flex-col lg:flex-row">
       <div className="flex-1 space-y-4 p-4">
         <div className="flex gap-2">
-          <input className="input" placeholder="Search by name / SKU / barcode" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <button className="btn-ghost whitespace-nowrap" onClick={() => setScanOpen(true)}>📷 Scan</button>
+          <input className="input" placeholder="Search by name / SKU" value={search} onChange={(e) => setSearch(e.target.value)} />
           <button className="btn-ghost whitespace-nowrap no-print" onClick={() => { const el: any = document.documentElement; if (document.fullscreenElement) document.exitFullscreen(); else el.requestFullscreen?.(); }}>⛶</button>
         </div>
         {categories.length > 0 && (
@@ -118,23 +106,14 @@ export default function PosPage() {
         )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           {filtered.map((p) => (
-            <div key={p.id} className="card flex flex-col overflow-hidden p-3">
-              <button className="flex-1 text-left" onClick={() => addProduct(p)}>
-                {p.imageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.imageUrl} alt={p.name} className="mb-2 h-24 w-full rounded-lg object-cover" />
-                )}
-                <div className="font-medium">{p.name}</div>
-                <div className="text-xs text-slate-500">{p.sku}</div>
-                <div className="mt-1 font-semibold text-brand">
-                  {p.hasVariations ? `${p.variations.length} sizes ▾` : money(Number(p.salePrice), currency)}
-                  {(p.modifiers?.length ?? 0) > 0 && <span className="ml-1 text-xs text-slate-400">+ add-ons</span>}
-                </div>
-              </button>
-              <button className="mt-2 text-xs text-slate-500 hover:text-brand" onClick={() => setBarcodeFor(p)}>
-                {p.barcode ? 'View barcode' : '⊕ Generate barcode'}
-              </button>
-            </div>
+            <button key={p.id} className="card flex flex-col p-3 text-left hover:border-brand" onClick={() => addProduct(p)}>
+              <div className="font-medium">{p.name}</div>
+              <div className="text-xs text-slate-500">{p.sku}</div>
+              <div className="mt-1 font-semibold text-brand">
+                {p.hasVariations ? `${p.variations.length} sizes ▾` : money(Number(p.salePrice), currency)}
+                {(p.modifiers?.length ?? 0) > 0 && <span className="ml-1 text-xs text-slate-400">+ add-ons</span>}
+              </div>
+            </button>
           ))}
           {filtered.length === 0 && <p className="col-span-full text-slate-500">No products.</p>}
         </div>
@@ -173,13 +152,6 @@ export default function PosPage() {
         </div>
         <button className="btn-primary mt-3" disabled={cart.lines.length === 0} onClick={() => setCheckoutOpen(true)}>Checkout</button>
       </div>
-
-      <Modal open={scanOpen} title="Scan barcode" onClose={() => setScanOpen(false)}>
-        {scanOpen && <CameraScanner onScan={handleScan} onClose={() => setScanOpen(false)} />}
-      </Modal>
-      <Modal open={!!barcodeFor} title={barcodeFor?.name} onClose={() => setBarcodeFor(null)}>
-        {barcodeFor && <BarcodeGenerator value={barcodeFor.barcode || barcodeFor.sku} label={barcodeFor.name} />}
-      </Modal>
 
       <ProductConfigModal product={configFor} currency={currency} onClose={() => setConfigFor(null)} onAdd={addConfigured} />
 

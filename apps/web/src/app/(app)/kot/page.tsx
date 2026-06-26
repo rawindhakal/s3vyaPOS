@@ -24,7 +24,7 @@ export default function KotPage() {
   return (
     <div className="p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Kitchen Display (KOT)</h1>
+        <h1 className="text-2xl font-bold">Running Orders</h1>
         <span className="text-sm text-slate-500">Auto-refreshing · {active.length} active</span>
       </div>
 

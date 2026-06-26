@@ -37,11 +37,11 @@ export function ModifiersModal({ product, onClose }: { product: Product | null; 
         <p className="text-slate-500">Optional extras the customer can attach (e.g. Extra cheese, Make it spicy). Each adds its price to the item.</p>
         {rows.map((r, i) => (
           <div key={i} className="flex items-center gap-2">
-            <input className="input h-9 flex-1" placeholder="Add-on name" value={r.name}
+            <input className="input h-9 min-w-0 flex-1" placeholder="Add-on name" value={r.name}
               onChange={(e) => setRows((rs) => rs.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} />
-            <input className="input h-9 w-28 text-right" type="number" placeholder="Price" value={r.price}
+            <input className="input h-9 w-20 shrink-0 text-right" type="number" placeholder="Price" value={r.price}
               onChange={(e) => setRows((rs) => rs.map((x, idx) => idx === i ? { ...x, price: Number(e.target.value) } : x))} />
-            <button className="text-red-500" onClick={() => setRows((rs) => rs.filter((_, idx) => idx !== i))}>✕</button>
+            <button className="shrink-0 text-red-500" onClick={() => setRows((rs) => rs.filter((_, idx) => idx !== i))}>✕</button>
           </div>
         ))}
         <button className="text-brand hover:underline" onClick={() => setRows((rs) => [...rs, { name: '', price: 0 }])}>+ Add add-on</button>

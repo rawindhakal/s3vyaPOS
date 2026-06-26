@@ -8,7 +8,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { Topbar } from '@/components/Topbar';
 import { NewOrderWatcher } from '@/components/NewOrderWatcher';
 
-const CASHIER_ALLOWED = ['/pos', '/tables', '/orders', '/kot', '/kds', '/reservations', '/customers', '/products', '/printers'];
+const CASHIER_ALLOWED = ['/pos', '/tables', '/orders', '/kot', '/reservations', '/customers', '/products', '/printers'];
 const WAITER_ALLOWED = ['/tables', '/orders', '/kot'];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
