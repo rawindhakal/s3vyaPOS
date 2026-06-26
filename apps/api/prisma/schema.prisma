@@ -165,6 +165,7 @@ model Shop {
   serviceChargeRate Decimal @default(0) @db.Decimal(5, 2)
   loyaltyEarnRate   Decimal @default(0) @db.Decimal(5, 2) // points earned per 100 spent
   roundOff          Boolean @default(false)
+  creditLimit       Decimal @default(1000) @db.Decimal(18, 2) // max outstanding dues per customer
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -187,6 +188,29 @@ model Shop {
   saleReturns      SaleReturn[]
   notifications    Notification[]
   feedback         Feedback[]
+  paymentChannels  PaymentChannel[]
+}
+
+// Admin-configured payment systems shown at settlement. A channel may have a
+// parent (system → sub-system, e.g. QR → Fonepay) and an optional QR image.
+model PaymentChannel {
+  id           String          @id @default(uuid())
+  shopId       String
+  parentId     String?
+  name         String
+  method       PaymentMethod
+  provider     PaymentProvider?
+  qrImageUrl   String?
+  instructions String?
+  sortOrder    Int             @default(0)
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+
+  shop     Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  parent   PaymentChannel?  @relation("ChannelChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children PaymentChannel[] @relation("ChannelChildren")
+
+  @@index([shopId])
 }
 
 model Notification {

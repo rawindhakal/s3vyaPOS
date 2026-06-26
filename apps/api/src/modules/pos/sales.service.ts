@@ -158,7 +158,19 @@ export class SalesService {
         splits.filter((p) => p.method === 'CREDIT').reduce((s, p) => s + round2(p.amount), 0),
       );
       if (creditPortion > 0 && !dto.customerId) {
-        throw new BadRequestException('Credit sales require a customer');
+        throw new BadRequestException('Credit sales require a registered customer');
+      }
+      // Enforce the per-customer credit limit (configurable in admin settings).
+      if (creditPortion > 0 && dto.customerId) {
+        const cust = await tx.customer.findFirst({ where: { id: dto.customerId, shopId } });
+        if (!cust) throw new BadRequestException('Customer not found');
+        const limit = Number(shop.creditLimit ?? 0);
+        const projected = round2(Number(cust.balance) + creditPortion);
+        if (projected > limit) {
+          throw new BadRequestException(
+            `Credit limit exceeded: dues would be ${projected} but the limit is ${limit}. Collect dues or raise the limit in Settings.`,
+          );
+        }
       }
 
       // Validate & apply gift-card / store-credit tenders.

@@ -174,10 +174,11 @@ export class OrderController {
   settle(
     @CurrentUser('shopId') shopId: string,
     @CurrentUser('userId') userId: string,
+    @CurrentUser('role') role: string,
     @Param('id') id: string,
     @Body() dto: SettleOrderDto,
   ) {
-    return this.orders.settle(shopId, id, dto, userId);
+    return this.orders.settle(shopId, id, dto, userId, role);
   }
 
   @Post(':id/cancel')

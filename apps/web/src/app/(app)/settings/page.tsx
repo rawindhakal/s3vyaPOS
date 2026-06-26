@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
+import { PaymentMethodsManager } from '@/components/PaymentMethodsManager';
 
 export default function SettingsPage() {
   const qc = useQueryClient();
@@ -21,6 +22,7 @@ export default function SettingsPage() {
         taxRate: Number(shop.taxRate),
         serviceChargeRate: Number(shop.serviceChargeRate),
         loyaltyEarnRate: Number(shop.loyaltyEarnRate),
+        creditLimit: Number(shop.creditLimit ?? 1000),
         roundOff: shop.roundOff,
       });
     }
@@ -32,6 +34,7 @@ export default function SettingsPage() {
       taxRate: Number(form.taxRate),
       serviceChargeRate: Number(form.serviceChargeRate),
       loyaltyEarnRate: Number(form.loyaltyEarnRate),
+      creditLimit: Number(form.creditLimit),
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['shop'] }); toast.success('Settings saved'); },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed'),
@@ -66,6 +69,9 @@ export default function SettingsPage() {
           <label className="block text-sm">Loyalty pts / 100
             <input className="input" type="number" value={form.loyaltyEarnRate} onChange={set('loyaltyEarnRate')} />
           </label>
+          <label className="block text-sm">Credit limit / customer
+            <input className="input" type="number" value={form.creditLimit} onChange={set('creditLimit')} />
+          </label>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={form.roundOff} onChange={(e) => setForm({ ...form, roundOff: e.target.checked })} />
@@ -74,6 +80,10 @@ export default function SettingsPage() {
         <button className="btn-primary" disabled={save.isPending} onClick={() => save.mutate()}>
           {save.isPending ? 'Saving…' : 'Save settings'}
         </button>
+      </div>
+
+      <div className="mt-6 max-w-xl">
+        <PaymentMethodsManager />
       </div>
     </div>
   );

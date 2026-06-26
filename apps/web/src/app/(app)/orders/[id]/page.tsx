@@ -39,6 +39,7 @@ export default function OrderPage() {
   const { data: customers = [] } = useQuery<any[]>({ queryKey: ['customers'], queryFn: async () => (await api.get('/customers')).data });
   const { data: shop } = useQuery<any>({ queryKey: ['shop'], queryFn: async () => (await api.get('/shop')).data });
   const { data: tables = [] } = useQuery<any[]>({ queryKey: ['tables'], queryFn: async () => (await api.get('/tables')).data });
+  const { data: channels = [] } = useQuery<any[]>({ queryKey: ['payment-channels'], queryFn: async () => (await api.get('/payment-channels')).data });
   const { data: logs = [] } = useQuery<any[]>({ queryKey: ['order-logs', id], queryFn: async () => (await api.get(`/orders/${id}/logs`)).data, enabled: historyOpen });
 
   const items: Item[] = order?.items ?? [];
@@ -232,7 +233,7 @@ export default function OrderPage() {
           <button className="btn-ghost" disabled={items.length === 0} onClick={sendKitchen}>🍳 Send to kitchen</button>
           <button className="btn-ghost" disabled={items.length === 0} onClick={reprintKot}>🖨 Reprint KOT</button>
           <button className="btn-ghost text-red-600" onClick={cancel}>Cancel order</button>
-          {!waiter && <button className="btn-primary" disabled={items.length === 0} onClick={() => setSettleOpen(true)}>Settle</button>}
+          <button className="btn-primary" disabled={items.length === 0} onClick={() => setSettleOpen(true)}>{waiter ? 'Settle (Fonepay)' : 'Settle'}</button>
         </div>
       </div>
 
@@ -240,7 +241,7 @@ export default function OrderPage() {
         open={settleOpen} onClose={() => setSettleOpen(false)} currency={currency}
         subtotal={subtotal} tax={tax}
         serviceChargeRate={Number(shop?.serviceChargeRate ?? 0)} roundOffEnabled={!!shop?.roundOff}
-        customers={customers} confirmLabel="Settle order" busy={busy} onConfirm={settle}
+        customers={customers} channels={channels} waiterMode={waiter} confirmLabel="Settle order" busy={busy} onConfirm={settle}
       />
 
       <ProductConfigModal product={configFor} currency={currency} withNote onClose={() => setConfigFor(null)} onAdd={addConfigured} />

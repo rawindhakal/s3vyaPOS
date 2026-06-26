@@ -343,7 +343,7 @@ export class OrderService {
 
   // Settle: turn the order into a Sale (reusing the double-entry sale flow),
   // mark the order settled and free the table.
-  async settle(shopId: string, orderId: string, dto: SettleOrderDto, userId?: string) {
+  async settle(shopId: string, orderId: string, dto: SettleOrderDto, userId?: string, role?: string) {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, shopId },
       include: { items: true },
@@ -351,6 +351,13 @@ export class OrderService {
     if (!order) throw new NotFoundException('Order not found');
     if (order.status !== 'OPEN') throw new BadRequestException('Order is not open');
     if (order.items.length === 0) throw new BadRequestException('Order has no items');
+
+    // Waiters may only settle through the integrated Fonepay dynamic QR.
+    if (role === 'WAITER') {
+      const pays = dto.payments?.length ? dto.payments : dto.paymentMethod ? [{ method: dto.paymentMethod, provider: dto.provider }] : [];
+      const ok = pays.length > 0 && pays.every((p) => p.method === 'QR' && (p.provider ?? 'FONEPAY') === 'FONEPAY');
+      if (!ok) throw new BadRequestException('Waiters can settle with Fonepay QR only');
+    }
 
     const sale = await this.sales.createSale(shopId, {
       items: order.items.map((i) => ({

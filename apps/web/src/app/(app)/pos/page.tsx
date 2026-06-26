@@ -43,6 +43,9 @@ export default function PosPage() {
   const { data: shop } = useQuery<any>({
     queryKey: ['shop'], queryFn: async () => (await api.get('/shop')).data,
   });
+  const { data: channels = [] } = useQuery<any[]>({
+    queryKey: ['payment-channels'], queryFn: async () => (await api.get('/payment-channels')).data,
+  });
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -164,6 +167,7 @@ export default function PosPage() {
         serviceChargeRate={Number(shop?.serviceChargeRate ?? 0)}
         roundOffEnabled={!!shop?.roundOff}
         customers={customers}
+        channels={channels}
         confirmLabel="Confirm sale"
         busy={submitting}
         onConfirm={checkout}
